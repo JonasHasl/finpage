@@ -1,3 +1,4 @@
+gunicorn
 dash==2.11.1
 plotly==5.16.0
 pandas==2.1.1
