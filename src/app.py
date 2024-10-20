@@ -1,170 +1,270 @@
-'''
- # @ Create Time: 2024-10-16 10:33:05.959252
-'''
-
-from dash import Dash, html, dcc
-import plotly.express as px
-import pandas as pd
+from dash import html, dcc
 import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output
-import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import matplotlib.dates as mdates
-from fredapi import Fred
-app = Dash(__name__, title="yieldcurves")
+import dash_bootstrap_components as dbc
+import re
+from dash.dependencies import Input, Output, State
 
-# Declare server for Heroku deployment. Needed for Procfile.
+app = dash.Dash(__name__, use_pages=True,
+                external_stylesheets=['custom.css', 'missing.css',
+    'https://use.fontawesome.com/releases/v5.8.1/css/all.css'],
+                meta_tags=[{'name' :'viewport', 'content':'width=device-width, initial-scale=1, height=device-height'}], suppress_callback_exceptions=True)
+
+
 server = app.server
 
+colors = {
+    'background': '#D6E4EA',
+    'text': '#718BA5',
+    'accent': '#004172',
+    'text-white':'white',
+    'header': '#004172'
+}
+
+navbar_style = {
+    "border": "none",
+    "color": '#eee',
+    'text-transform': 'none',
+    'font-size':'24px',
+    'textAlign':'right'
+}
+
+data_url_triangle = """
+data:image/svg+xml;utf8,<svg width="12" height="10" xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 12,0 6,10" style="fill:white"/></svg>
+"""
+
+data_url_triangle_right = """
+data:image/svg+xml;utf8,<svg width="10" height="12" xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 0,12 10,6" style="fill:white"/></svg>
+"""
 
 
-# Initialize FRED API
-FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
-fred = Fred(FRED_API_KEY)
 
-# Define the observation period (e.g., last 10 years)
-observation_start = (datetime.today() - timedelta(days=8 * 365)).strftime('%Y-%m-%d')  # 10 years ago
 
-# List of maturities and their corresponding FRED series IDs
-maturity_labels = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y']
-series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5',
-              'DGS7', 'DGS10', 'DGS20', 'DGS30']
+header_banner = dbc.Navbar(
+    [
 
-# Fetch data for each series over the entire historical period
-yield_data = {}
-for series_id in series_ids:
-    yield_data[series_id] = fred.get_series(series_id, observation_start=observation_start)
+        dbc.Nav(
+            [html.A("", href="/", style={'font-size':'2.5rem', 'font-weight':'lighter', 'color': '#7a7a7a', 'margin-right': 'auto', 'margin-left':'20px'} ),
+                html.Div([
+                dbc.NavItem(dbc.NavLink("Home", href="/", style={
+                                                            "border": "none",
+                                                            "color": '#7a7a7a',
+                                                            'text-transform': 'none',
+                                                            'font-size':'24px',
+                                                            'textAlign':'right'
 
-# Combine all series into a single DataFrame
-yield_df = pd.DataFrame(yield_data)
-yield_df.index = pd.to_datetime(yield_df.index)
+                                                        },), className='menuitemtop'),
+                
+                
+                dbc.NavItem(dbc.NavLink("Economy Overview", href="/economy", style={
+                                                            "border": "none",
+                                                            "color": '#7a7a7a',
+                                                            'text-transform': 'none',
+                                                            'font-size':'24px',
+                                                            'textAlign':'right'
 
-# Drop rows with all NaN values and fill forward to ensure continuous data
-yield_df.dropna(how='all', inplace=True)
-yield_df.fillna(method='ffill', inplace=True)
+                                                        }), className='menuitemtop'),
+                dbc.NavItem(dbc.NavLink("Yield Curve", href="/yield_curves", style={
+                                                            "border": "none",
+                                                            'font-size':'24px',
+                                                            "color": '#7a7a7a',
+                                                            'text-transform': 'none',
+                                                            'textAlign':'right'
 
-# Resample data to quarterly frequency and include the last observation
-yield_df_quarterly = yield_df.resample('Q').last()
+                                                        },), className='menuitemtop'),
+                    ], id='output_div2', className='banner-row', style={'display':''}),
+            #html.Button(' ', id='show_hide_button2', className='buttonMenu', style={'display':''}),
+            ],
+            style={'padding-right':'20px'},
+            className='banner-row',
+            navbar=True
+        ),
+    ],
+    sticky="top",
+    className='headerbanner',
+style={'position':'absolute', 'z-index':'10003', '-webkit-font-smoothing': 'antialiased', 'width':'100%'},
 
-# Update the last date's yield values to today's date
-today = pd.Timestamp(datetime.today().date())
-
-# Check if the last date is earlier than today
-if not yield_df_quarterly.index.empty and yield_df_quarterly.index[-1] > today:
-    last_yields = yield_df_quarterly.iloc[-1]
-    yield_df_quarterly.loc[today] = last_yields
-
-# If today's date already exists in the DataFrame, keep the values intact
-yield_df_quarterly.sort_index(inplace=True)  # Sort index to ensure correct date ordering
-
-# Create a Dash app
-#app = dash.Dash(__name__)
-
-# Initialize static yield table data
-last_yields = yield_df_quarterly.iloc[-1]  # Get the latest yields
-static_table_content = [
-    html.Tr([html.Td('Maturity')] + [html.Td(maturity) for maturity in maturity_labels]),  # Header row
-    html.Tr([html.Td('Yield (%)')] + [html.Td(f"{last_yields[i]:.2f}") for i in range(len(maturity_labels))])  # Yield values
-]
-
-# Create the static yield table
-static_yield_table = html.Table(
-    static_table_content,
-    style={'width': '100%', 'borderCollapse': 'collapse', 'border': '1px solid black'},
 )
 
-# Add header for the yields
-yield_table_header = html.Div(f"Yields as of {today.date()}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
 
-# Define the layout of the app
-app.layout = html.Div([
-    html.H1("Historical Yield Curve 3D Visualization"),
 
-    # Static yield table
-    html.Div([yield_table_header, static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 
-                                                               'borderRadius': '5px', 'marginBottom': '20px'}),
-    
-    # Date range picker
-    dcc.DatePickerRange(
-        id='date-picker-range',
-        start_date=yield_df_quarterly.index.min().date(),  # Start date is the minimum in the data
-        end_date=datetime.today().date(),  # End date is today
-        display_format='YYYY-MM-DD',  # Format for displaying the date
-        style={'marginBottom': '20px'}
-    ),
-    
-    dcc.Graph(id='yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px'}),
+
+menu = html.Div([
+    dcc.Dropdown(
+        id='dropdown',
+        options=[
+            {'label': 'Link 1', 'value': 'link1'},
+            {'label': 'Link 2', 'value': 'link2'},
+            {'label': 'Link 3', 'value': 'link3'}
+        ],
+        placeholder='...',
+        searchable=False,
+        clearable=False,
+        style={
+            'position': 'absolute',
+            'top': '10px',
+            'right': '10px',
+            'width': '150px',
+            'border': 'none',
+            'background-color': 'transparent',
+            'font-size': '1.2em',
+'           dropdownIndicator': {
+                'color': 'white'}
+        },
+        #indicator_style={
+        #    'display': 'none'
+        #}
+    )
 ])
 
-@app.callback(
-    Output('yield-curve-3d', 'figure'),
-    [Input('date-picker-range', 'start_date'),
-     Input('date-picker-range', 'end_date')]
-)
-def update_graph(start_date, end_date):
-    # Filter the data based on selected date range
-    mask = (yield_df_quarterly.index >= start_date) & (yield_df_quarterly.index <= end_date)
-    filtered_data = yield_df_quarterly.loc[mask]
-
-    # # Ensure today's date is included in the DataFrame if not already present
-    # today = pd.Timestamp(datetime.today().date())
-    # if today not in filtered_data.index:
-    #     last_yields = filtered_data.iloc[-1]
-    #     filtered_data.loc[today] = last_yields
-
-    # Create the 3D surface plot
-    fig = go.Figure(data=[go.Surface(
-        z=filtered_data.T.values,  # Use filtered quarterly data
-        x=mdates.date2num(filtered_data.index),  # Convert dates for plotting
-        y=np.arange(len(maturity_labels)), 
-        colorscale='GnBu',  # Color scale
-        colorbar_title='Yield (%)'
-    )])
-
-    # Create semi-annual ticks including today's date
-    x_ticks = pd.date_range(start=start_date, end=end_date, freq='6M').to_list()
-    
-    # Include today's date in x_ticks if it isn't already
-    if today not in x_ticks:
-        x_ticks.append(today)
-
-    x_ticks = sorted(x_ticks)  # Sort to maintain order
-    x_tick_values = mdates.date2num(x_ticks)  # Convert to numerical format for plotting
-
-    # Update layout for the 3D plot
-    fig.update_layout(
-        title=f"Yield Curve (1-month to 30-year) from {start_date} to {end_date}",
-        scene=dict(
-            xaxis_title='Date',
-            yaxis_title='Maturity',
-            zaxis_title='Yield (%)',
-            xaxis=dict(
-                tickmode='array',
-                tickvals=x_tick_values,  # Set the custom tick values for semi-annually
-                ticktext=[d.strftime('%Y-%m-%d') for d in x_ticks],  # Formatted tick text
-                dtick=None,  # No automatic dtick, we use tickvals
-                backgroundcolor='white'  # Set background color to white
-            ),
-            yaxis=dict(
-                tickvals=np.arange(len(maturity_labels)), 
-                ticktext=maturity_labels,
-                backgroundcolor='white'  # Set background color to white
-            ),
-            zaxis=dict(backgroundcolor='white')  # Set background color to white for z-axis
-        ),
-        scene_camera=dict(
-            eye=dict(x=1.25, y=1.25, z=1.25),  # Controls the 3D view
-            up=dict(x=0, y=0, z=1),
-            center=dict(x=0, y=0, z=0)
-        )
-    )
-    
-    return fig  # Return the figure
+# secondary_menu = html.Div(
+#     [
+#         dbc.Nav(
+#             [
+#                 dbc.NavLink(html.Span(["Instruksjoner"],style={'color':'white'}) , href="/Instruksjoner", style={'color':'white'}),
+#                 dbc.NavLink("Hvordan handle kurtasjefritt", href="/kurtasjefritt", style={'color':'white'}),
+#                 dbc.NavLink("Hvorfor denne tjenesten?", href="/tjenesten", style={'color':'white'})
+#             ],
+#             style={'justify-content':'center'}, # A darker shade of blue
+#             className="banner-row",
+#             navbar=True
+#         )
+#     ],
+#     className='secondary-menu-container',
+#     style={'display': 'none'},  # This hides the menu initially
+#     id='secondary-menu-container'
+# )
 
 
+# finvest_menu = html.Div([
+#     dbc.Nav([
+#         dbc.NavLink(
+#             html.Span("S&P500 & NASDAQ 100", style={'font-size':'1rem','text-align':'center', 'color':'black', 'padding-bottom':'2px'}, className='headers_finvest_menu'),
+#             className="us-tab",
+#             href="Finvest-US"
+#         ),
+#         dbc.NavLink(
+#             html.Span('Scandinavian Stocks', style={'font-size':'1rem','text-align':'center', 'color':'black', 'padding-bottom':'2px'}, className='headers_finvest_menu'),
+#             className='scan-tab',
+#             href="/Finvest-SC"
+#         )
+#     ],
+#     style={'justify-content': 'center', 'gap':'20px'},
+#     className="tabs-country",
+#     navbar=True)
+# ], className='finvest-menu-container', style={'display': 'none'}, id='finvest-menu-container')
+
+
+
+
+
+contact = html.Div([
+
+    html.H3("Contact Information"),
+    html.A(html.Span("jonas_fbh@hotmail.com", style={'display':'inline-block', 'font-size':'1rem','text-align':'center', 'color':'black', 'padding-bottom':'2px'}), href="mailto:jonas_fbh@hotmail.com"),
+    html.Br(),
+    html.A(html.Span("https://www.linkedin.com/in/jonashasl", style={'display':'inline-block', 'font-size':'1rem','text-align':'center', 'color':'black', 'padding-bottom':'2px'}), href="https://www.linkedin.com/in/jonashasl"),
+    html.Br(),
+    html.A(html.Span("+47 45101329", style={'display':'inline-block', 'font-size':'1rem','text-align':'center', 'color':'black', 'padding-bottom':'2px'}),href="tel:+4745101329")],
+    style={'color':'black', 'font-weight':'normal', 'textAlign':'center'}, className='footer-left')
+
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+    html.Div([
+    header_banner]),
+    dash.page_container
+    #html.Hr(style={'margin-block-start': '0em'}),
+    #html.Div([contact], className='footer')
+], style={'margin-top':'0'},
+) #className='parent-container')
+
+# @app.callback(
+#     Output(component_id='output_div2', component_property='style'),
+#     Output('output_div2', 'className'),
+#     [Input(component_id='show_hide_button2', component_property='n_clicks')],
+#     [State(component_id='output_div2', component_property='style')]
+# )
+
+# def show_hide_element(n_clicks, style):
+#     if n_clicks is None:
+#         style['display'] = ''
+#         return style, 'banner-row'
+
+#     if n_clicks % 2 == 0:
+#         style['display'] = ''
+#         return style, 'banner-row'
+#     else:
+#         style['display'] = 'none'
+#         return style, 'banner-row'
+
+
+# @app.callback(
+#     dash.dependencies.Output('secondary-menu-container', 'style'),
+#     dash.dependencies.Input('tax-dropdown-button', 'n_clicks'),
+#     prevent_initial_call=True
+# )
+# def toggle_secondary_menu(n):
+#     # Initial hiding of the secondary menu
+#     if n is None:
+#         return {'display': 'none'}
+#     # Toggle logic for even/odd clicks
+#     if n % 2 == 0:
+#         return {'display': 'none'}
+#     else:
+#         return {'display': 'block'}
+
+# from dash.dependencies import Input, Output, State
+
+# from dash.dependencies import Input, Output, State
+
+# @app.callback(
+#     [
+#         Output('finvest-menu-container', 'style'),
+#         Output('downward-triangle', 'style'),
+#         Output('rightward-triangle', 'style')
+#     ],
+#     [
+#         Input('finvest-dropdown-button', 'n_clicks'),
+#         Input('url', 'pathname')
+#     ],
+#     [State('finvest-menu-container', 'style')],
+#     prevent_initial_call=True
+# )
+# def toggle_secondary_menu2(n, pathname, current_style):
+#     ctx = dash.callback_context
+#     if not ctx.triggered:
+#         # If not triggered by anything (initial load), hide the menu and show downward triangle
+#         return {'display': 'none'}#, #{"width": "12px", "height": "10px", 'color':'white'}, {"width": "10px", "height": "12px", 'color':'white', 'display': 'none'}
+#     else:
+#         input_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+#         # If triggered by URL change, hide the menu and show downward triangle
+#         if input_id == 'url':
+#             return {'display': 'none'}, {"width": "12px", "height": "10px", 'color':'white'}, {"width": "10px", "height": "12px", 'color':'white', 'display': 'none'}
+        
+#         # If triggered by button click, toggle based on current state
+#         if input_id == 'finvest-dropdown-button':
+#             if current_style and current_style.get('display') == 'block':
+#                 return {'display': 'none'}, {"width": "12px", "height": "10px", 'color':'white'}, {"width": "10px", "height": "12px", 'color':'white', 'display': 'none'}
+#             else:
+#                 return {'display': 'block'}, {"width": "12px", "height": "10px", 'color':'white', 'display': 'none'}, {"width": "10px", "height": "12px", 'color':'white'}
+
+#     # Default return value
+#     return {'display': 'none'}, {"width": "12px", "height": "10px", 'color':'white'}, {"width": "10px", "height": "12px", 'color':'white', 'display': 'none'}
+
+
+
+
+
+# Define different styles for different screen sizes using CSS media queries
+
+import socket
+from contextlib import closing
+
+
+def find_free_port():
+     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+       s.bind(('', 0))
+       return s.getsockname()[1]
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=find_free_port())
