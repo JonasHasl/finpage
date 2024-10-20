@@ -80,7 +80,7 @@ df.rename(columns={'index':'Date'}, inplace=True)
 
 # Calculate the interest-to-income ratio
 df['Interest to Income Ratio'] = ((df['Interest Payments'])/df['Total Revenue'])
-df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 0)
+df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 2)
 # Plot the data
 #plt.figure(figsize=(10, 6))
 #plt.plot(df.index, df['Interest to Income Ratio'], label='Interest to Income Ratio', color='b')
