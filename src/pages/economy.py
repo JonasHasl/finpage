@@ -49,7 +49,46 @@ economy['TenYield'] = economy['TenYield'] / 100
 economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
 economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
 economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
+economy['Close'] = round(economy['Close'], 2)
+from fredapi import Fred
+import pandas as pd
+import matplotlib.pyplot as plt
+# Initialize FRED API
+FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
+fred = Fred(FRED_API_KEY)
+# Retrieve data from FRED
+# Series ID for Interest Payments: FGEXPND
+# Series ID for Government Receipts: FGRECPT
+interest_payments = fred.get_series('A091RC1Q027SBEA')
+government_revenue = fred.get_series('FGRECPT')
+#interesttogdp = fred.get_series('FYOIGDA188S')
+#tenyear = fred.get_series('DGS10').resample('AS-JAN').first()
 
+# Convert the data into a DataFrame for easier handling
+interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
+revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
+#interesttogdp_df = pd.DataFrame(interesttogdp, columns=['Interest to GDP'])
+#tenyear_df = pd.DataFrame(tenyear, columns=['10-year'])
+# Merge the two datasets on the date index
+df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
+#df = pd.merge(df, interesttogdp_df,  left_index=True, right_index=True)
+#df = pd.merge(df, tenyear_df,  left_index=True, right_index=True)
+# Convert the index to a datetime index and extract the year
+df.index = pd.to_datetime(df.index)
+df.reset_index(inplace=True)
+df.rename(columns={'index':'Date'}, inplace=True)
+
+# Calculate the interest-to-income ratio
+df['Interest to Income Ratio'] = ((df['Interest Payments'])/df['Total Revenue'])
+df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 2)
+# Plot the data
+#plt.figure(figsize=(10, 6))
+#plt.plot(df.index, df['Interest to Income Ratio'], label='Interest to Income Ratio', color='b')
+
+# Add titles and labels
+#plt.title('U.S. Government Interest-to-Income Ratio Over Time', fontsize=14)
+#plt.xlabel('Year', fontsize=12)
+#plt.ylabel('Interest to Income Ratio (%)', fontsize=12)
 
 
 def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False,
@@ -222,6 +261,16 @@ cardeconomy = dbc.Container([
             dcc.Graph(figure=create_graph(colors['accent'], 'Price', 'S&P 500 Index', economy,
                                           'Close', tick=' ', starts='2010-01-01',
                                           ends=str(datetime.today())), className='graph'),
+
+                html.Div([
+
+                    dcc.Graph(
+                        figure=create_graph(colors['accent'], 'Interest to Income Ratio', 'Federal Interest Payments to Revenues Ratio', df,
+                                            'Interest to Income Ratio', tick='%', starts='1970-01-01',
+                                            ends=str(datetime.today())), className='graph'),
+                ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
+
+                ),
                 # width={'size':5, 'offset':1, 'order':1},
 
                 # xs=6, sm=6, md=6, lg=5, xl=5
