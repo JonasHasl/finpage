@@ -23,8 +23,8 @@ colors = {
 }
 
 fonts = {
-    'heading': 'Arial',
-    'body': 'Arial'
+    'heading': 'Helvetica',
+    'body': 'Helvetica'
 }
 
 COLORS = {
@@ -40,7 +40,7 @@ COLORS = {
     'text-white': 'white',
 }
 
-economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=kla013ue&dl=1')
+economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=qj1xch6m&dl=1')
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
 #'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
 economy['InflationExp'] = economy['InflationExp'] / 100
@@ -92,7 +92,7 @@ df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 2)
 
 
 def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False,
-                 legend=False, YoY=False, Score=False):
+                 legend=False, YoY=False, Score=False, hline0 =False):
     dataframe = dataframe.ffill().fillna(0)
     mask = (dataframe['Date'] > starts) & (dataframe['Date'] <= ends)
     dataframe = dataframe.loc[mask]
@@ -138,6 +138,11 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
             borderwidth=1)
     else:
         next
+
+    if hline0 == True:
+        fig.add_hline(y=0, line_width=3, line_dash="dash", line_color="black")
+    else:
+        next
     if textbox == True:
         fig.add_annotation(
             text='Yellow Line Recommendation: 70 % Long <br> 30% Short <br> Red Line Recommendation: Risk Neutral <br> i.e 50 % Long, 50 % Short',
@@ -166,7 +171,7 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
         fig['data'][1]['showlegend'] = True
         fig['data'][1]['name'] = 'Actual Forward Return'
 
-    fig.update_layout(font=dict(family="Arial", size=15, color=COLORS['text']), # changed font to Arial
+    fig.update_layout(font=dict(family="Helvetica", size=15, color=COLORS['text']), # changed font to Arial
         paper_bgcolor=colors['background'], # using the background color
         plot_bgcolor='white', # using the content color for plot background
         #yaxis_tickformat=".1%", # formatting y-axis ticks
@@ -239,8 +244,8 @@ cardeconomy = dbc.Container([
         ], className='parent-row', style={'margin':'5px'}),
 
         html.Div([
-            dcc.Graph(figure=create_graph(colors['accent'], 'Confidence', 'Composite Confidence Indicator US', economy,
-                                          'Consumer Confidence', tick=' ', starts='2010-01-01',
+            dcc.Graph(figure=create_graph(colors['accent'], 'T10Y2Y', '10-y 2-y Spread', economy,
+                                          'T10Y2Y', tick=' ', starts='2010-01-01', hline0=True,
                                           ends=str(datetime.today())), className='graph'),
                 # width={'size':5, 'offset':1, 'order':1},
 
