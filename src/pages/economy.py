@@ -10,12 +10,13 @@ from update_script import update_dropbox_dataset
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
+import plotly.graph_objects as go
 
 dash.register_page(__name__, path='/economy')
 
 
 colors = {
-    'background': 'rgb(197, 216, 239)',
+    'background': 'rgb(240,241,245)',
     'text': 'black',
     'accent': '#004172',
     'text-white':'white',
@@ -23,8 +24,8 @@ colors = {
 }
 
 fonts = {
-    'heading': 'Arial',
-    'body': 'Arial'
+    'heading': 'Helvetica',
+    'body': 'Helvetica'
 }
 
 COLORS = {
@@ -40,7 +41,7 @@ COLORS = {
     'text-white': 'white',
 }
 
-economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=kla013ue&dl=1')
+economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=qj1xch6m&dl=1')
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
 #'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
 economy['InflationExp'] = economy['InflationExp'] / 100
@@ -49,42 +50,120 @@ economy['TenYield'] = economy['TenYield'] / 100
 economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
 economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
 economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
+economy['Close'] = round(economy['Close'], 2)
+from fredapi import Fred
+import pandas as pd
+import matplotlib.pyplot as plt
+# Initialize FRED API
+FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
+fred = Fred(FRED_API_KEY)
+# Retrieve data from FRED
+# Series ID for Interest Payments: FGEXPND
+# Series ID for Government Receipts: FGRECPT
+interest_payments = fred.get_series('A091RC1Q027SBEA')
+government_revenue = fred.get_series('FGRECPT')
+#interesttogdp = fred.get_series('FYOIGDA188S')
+#tenyear = fred.get_series('DGS10').resample('AS-JAN').first()
+
+# Convert the data into a DataFrame for easier handling
+interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
+revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
+#interesttogdp_df = pd.DataFrame(interesttogdp, columns=['Interest to GDP'])
+#tenyear_df = pd.DataFrame(tenyear, columns=['10-year'])
+# Merge the two datasets on the date index
+df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
+#df = pd.merge(df, interesttogdp_df,  left_index=True, right_index=True)
+#df = pd.merge(df, tenyear_df,  left_index=True, right_index=True)
+# Convert the index to a datetime index and extract the year
+df.index = pd.to_datetime(df.index)
+df.reset_index(inplace=True)
+df.rename(columns={'index':'Date'}, inplace=True)
+
+# Calculate the interest-to-income ratio
+df['Interest to Income Ratio'] = ((df['Interest Payments'])/df['Total Revenue'])
+df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 2)
 
 
 
-def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False,
+def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False, hline0=False,
                  legend=False, YoY=False, Score=False):
     dataframe = dataframe.ffill().fillna(0)
     mask = (dataframe['Date'] > starts) & (dataframe['Date'] <= ends)
     dataframe = dataframe.loc[mask]
-    fig = px.line(dataframe, x='Date', y=y, color_discrete_sequence=[color])
+
+    # Check if there are any values below 0
+    has_below_zero = (dataframe[y] < 0).any()
+
+    # Create the figure
+    fig = go.Figure()
+
+    if has_below_zero:
+        # Split the data into above 0 and below 0 for coloring only when there are negative values
+        dataframe['above_0'] = dataframe[y].apply(lambda val: val if val > 0 else 0)
+        dataframe['below_0'] = dataframe[y].apply(lambda val: val if val < 0 else 0)
+        
+        # Add the area for values above 0 (green) without a legend
+        fig.add_trace(go.Scatter(
+            x=dataframe['Date'],
+            y=dataframe['above_0'],
+            fill='tozeroy',
+            mode='none',  # No lines, just fill
+            fillcolor='rgba(61, 181, 105, 0.5)',
+            #line_color = 'black',
+            showlegend=False,  # Remove legend for Above 0
+        ))
+
+        # Add the area for values below 0 (red) without a legend
+        fig.add_trace(go.Scatter(
+            x=dataframe['Date'],
+            y=dataframe['below_0'],
+            fill='tozeroy',
+            mode='none',
+            #line_color='black',
+            fillcolor = 'rgba(255, 0, 0, 0.5)',
+            showlegend=False,  # Remove legend for Below 0
+        ))
+    
+    else:
+        # If no negative values, use a black line with dark blue (50% transparency) area chart
+        fig.add_trace(go.Scatter(
+            x=dataframe['Date'],
+            y=dataframe[y],
+            fill='tozeroy',
+            mode='lines',  # Add line with area fill
+            line_color='black',  # Black line color
+            fillcolor='rgba(0, 0, 139, 0.5)',  # Dark blue with 50% transparency
+            showlegend=False  # No legend needed for the single color
+        ))
+
+    # Update layout for the figure
     fig.update_layout(
         yaxis_title=yaxis,
         xaxis_title='Date',
         title=title,
         title_x=0.5,
-        margin={
-            'l': 0,
-            'r': 35,
-        },
-        font=dict(family="Abel", size=15, color=colors['text']))
+        margin={'l': 0, 'r': 35},
+        font=dict(family="Abel", size=15, color=colors['text']),
+        plot_bgcolor='white',
+    )
+
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(tickformat=".1" + str(tick))
-    init = 1
     fig.layout.plot_bgcolor = 'white'
-    # fig.update_traces(line_color=color, line_width=1)
+    
+    # Conditional traces and other configurations
     if pred == True:
-        fig.update_traces(line_color='orange', line_width=2)
         fig.add_traces(
-            list(px.line(dataframe, x='Date', y='Forward Return', color_discrete_sequence=["skyblue"]).select_traces()))
+            list(go.Scatter(x=dataframe['Date'], y=dataframe['Forward Return'], fill='tozeroy', fillcolor='skyblue').select_traces()))
         fig.add_traces(
-            list(px.line(dataframe, x='Date', y='SP Trailing 4 Weeks Return',
-                         color_discrete_sequence=["red"]).select_traces()))
-        # fig.update_traces(line_width=1)
+            list(go.Scatter(x=dataframe['Date'], y=dataframe['SP Trailing 4 Weeks Return'], fill='tozeroy', fillcolor='red').select_traces()))
+    
     if hline1 == True:
         fig.add_hline(y=35, line_width=3, line_dash="dash", line_color="orange")
         fig.add_hline(y=20, line_width=3, line_dash="dash", line_color="red")
-
+    if hline0 == True:
+        fig.add_hline(y=0, line_width=3, line_dash="dash", line_color="black")
+    
     if YoY == True:
         fig.add_hline(y=0.02, line_width=3, line_dash="dash", line_color="orange")
         fig.add_annotation(
@@ -97,8 +176,7 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
             y=1.0,
             bordercolor='black',
             borderwidth=1)
-    else:
-        next
+
     if textbox == True:
         fig.add_annotation(
             text='Yellow Line Recommendation: 70 % Long <br> 30% Short <br> Red Line Recommendation: Risk Neutral <br> i.e 50 % Long, 50 % Short',
@@ -110,38 +188,31 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
             y=1.0,
             bordercolor='black',
             borderwidth=1)
+
     if Score == True:
-        #for data in fig['data']:
-        #    data.hovertemplate = '%{y:.2f}<extra></extra>'
-        fig.update_layout(
-        #height=600
+        fig.update_layout()
 
-        )
-
-    # if legend == True:
-    #    fig['data'][0]['showlegend']=True
-    #    fig['data'][0]['name']=y
     if ((legend == True) & (y == 'Preds')):
         fig['data'][0]['showlegend'] = True
         fig['data'][0]['name'] = 'Predicted Forward Return'
         fig['data'][1]['showlegend'] = True
         fig['data'][1]['name'] = 'Actual Forward Return'
 
-    fig.update_layout(font=dict(family="Arial", size=15, color=COLORS['text']), # changed font to Arial
-        paper_bgcolor=colors['background'], # using the background color
-        plot_bgcolor='white', # using the content color for plot background
-        #yaxis_tickformat=".1%", # formatting y-axis ticks
-        yaxis_gridcolor=COLORS['border'], # using border color for y-grid
-        xaxis_gridcolor=COLORS['border'], # using border color for x-grid
+    # Update final layout settings
+    fig.update_layout(
+        font=dict(family="Helvetica", size=15, color=COLORS['text']), 
+        paper_bgcolor=colors['background'], 
+        plot_bgcolor='white',
+        yaxis_gridcolor=COLORS['border'], 
+        xaxis_gridcolor=COLORS['border'], 
         height=700
     )
 
-    fig.update_xaxes(showgrid=True) # show x grid for better readability
+    fig.update_xaxes(showgrid=True) 
     fig.update_yaxes(showgrid=True)
     fig.update_layout(uirevision='constant')
 
     return fig
-
 
 
 descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
@@ -161,7 +232,7 @@ cardeconomy = dbc.Container([
         html.Div([
                 dcc.Graph(
                     figure=create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'YoY', tick='%',
-                                        starts='2010-01-01', ends=str(datetime.today()), YoY=True),  className='graph',
+                                        starts='1995-01-01', ends=str(datetime.today()), YoY=True),  className='graph',
                     style={'border-right': '1px rgba(1, 1, 1, 1)'})
                 # width={'size':5, 'offset':1, 'order':1},
 
@@ -172,7 +243,7 @@ cardeconomy = dbc.Container([
 
                     dcc.Graph(
                         figure=create_graph(colors['accent'], 'Money Supply M2', 'Money Supply US M2', economy,
-                                            'm2', tick=' ', starts='2007-01-01', ends=str(datetime.today())),
+                                            'm2', tick=' ', starts='1985-01-01', ends=str(datetime.today())),
                          className='graph')
                 ], style={'margin':'5px'}
                     # className='six columns' #width={'size':5, 'offset':0, 'order':2},
@@ -200,8 +271,8 @@ cardeconomy = dbc.Container([
         ], className='parent-row', style={'margin':'5px'}),
 
         html.Div([
-            dcc.Graph(figure=create_graph(colors['accent'], 'Confidence', 'Composite Confidence Indicator US', economy,
-                                          'Consumer Confidence', tick=' ', starts='2010-01-01',
+            dcc.Graph(figure=create_graph(colors['accent'], 'T10Y2Y', '10-y 2-y Spread', economy,
+                                          'T10Y2Y', tick=' ', starts='1985-01-01', hline0=False,
                                           ends=str(datetime.today())), className='graph'),
                 # width={'size':5, 'offset':1, 'order':1},
 
@@ -211,7 +282,7 @@ cardeconomy = dbc.Container([
 
                     dcc.Graph(
                         figure=create_graph(colors['accent'], 'Unemployment Rate', 'Unemployment Rate US', economy,
-                                            'unemp_rate', tick='%', starts='2005-01-01',
+                                            'unemp_rate', tick='%', starts='1985-01-01',
                                             ends=str(datetime.today())), className='graph'),
                 ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
 
@@ -220,8 +291,18 @@ cardeconomy = dbc.Container([
 
         html.Div([
             dcc.Graph(figure=create_graph(colors['accent'], 'Price', 'S&P 500 Index', economy,
-                                          'Close', tick=' ', starts='2010-01-01',
+                                          'Close', tick=' ', starts='1985-01-01',
                                           ends=str(datetime.today())), className='graph'),
+
+                html.Div([
+
+                    dcc.Graph(
+                        figure=create_graph(colors['accent'], 'Interest to Income Ratio', 'Federal Interest Payments to Revenues Ratio', df,
+                                            'Interest to Income Ratio', tick='%', starts='1985-01-01',
+                                            ends=str(datetime.today())), className='graph'),
+                ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
+
+                ),
                 # width={'size':5, 'offset':1, 'order':1},
 
                 # xs=6, sm=6, md=6, lg=5, xl=5
@@ -246,25 +327,7 @@ cardeconomy = dbc.Container([
 
         ),
         html.Br()
-        # html.Div([
-        # dbc.Card([html.Div([
-        #                    html.H3("Finally we present a prediction for the next month return of the S&P500 index. The predictions are made using an LSTM Neural Network with two LSTM hidden layers. LSTM stands for Long-Short Term Memory and it fits the model "
-        #                            "based on recent developments, as well as historic data to make a prediction for the future. The model is based on fundamental factors in the economy as well as price data from the S&P500 index. The model also accounts for autocorrelation"
-        #                            " by looking at the data as a sequence. Based on autocorrelation analysis, we find that the data seems to be autocorrelated by a window of 1 year. We therefore choose a window of the sequence in the model as 52 weeks. The model also takes interactions between the factors into account. Measures to adjust for overfitting"
-        #                            " includes both dropout and recurrent dropout layers and early stopping when the model does not improve.", style={'fontSize':'0.7em', 'font-family': ["Helvetica"], 'font-weight':'lighter'}),
-        #                            ],
-        #                                    style={}, className='header-items',
-
-        # xs=12, sm=12, md=12, lg=5, xl=5)
-        #   ),
-        #        ])],className='header-main'),
-        # html.Div([
-
-        #           dcc.Graph(figure=create_graph('blue', 'Predicted Forward Return', 'Predictions One Month Return S&P500 LSTM Neural Network ', econW2, 'Preds', tick='%',starts='2020-01-01', ends=str(datetime.today()), hline1=False, textbox=False, pred=True, legend=True),style={})
-        #       ],className='table-users' #width={'size':5, 'offset':0, 'order':2},
-
-
-    # ])
+        
 ], className='parent-container2', fluid=True, style={})
 
 
