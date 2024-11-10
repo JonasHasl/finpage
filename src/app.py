@@ -113,6 +113,8 @@ menu = html.Div([
         #indicator_style={
         #    'display': 'none'
         #}
+
+
     )
 ])
 

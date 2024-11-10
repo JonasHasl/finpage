@@ -41,7 +41,7 @@ COLORS = {
     'text-white': 'white',
 }
 
-economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=qj1xch6m&dl=1')
+economy = pd.read_csv('https://www.dropbox.com/scl/fi/lp58l9owrh4npi78c6lpd/econW.csv?rlkey=5fafzlx30n9wvir9w1xmfls7o&st=dkuh0em5&dl=1')
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
 #'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
 economy['InflationExp'] = economy['InflationExp'] / 100
@@ -91,50 +91,17 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
     mask = (dataframe['Date'] > starts) & (dataframe['Date'] <= ends)
     dataframe = dataframe.loc[mask]
 
-    # Check if there are any values below 0
-    has_below_zero = (dataframe[y] < 0).any()
-
     # Create the figure
     fig = go.Figure()
 
-    if has_below_zero:
-        # Split the data into above 0 and below 0 for coloring only when there are negative values
-        dataframe['above_0'] = dataframe[y].apply(lambda val: val if val > 0 else 0)
-        dataframe['below_0'] = dataframe[y].apply(lambda val: val if val < 0 else 0)
-        
-        # Add the area for values above 0 (green) without a legend
-        fig.add_trace(go.Scatter(
-            x=dataframe['Date'],
-            y=dataframe['above_0'],
-            fill='tozeroy',
-            mode='none',  # No lines, just fill
-            fillcolor='rgba(61, 181, 105, 0.5)',
-            #line_color = 'black',
-            showlegend=False,  # Remove legend for Above 0
-        ))
-
-        # Add the area for values below 0 (red) without a legend
-        fig.add_trace(go.Scatter(
-            x=dataframe['Date'],
-            y=dataframe['below_0'],
-            fill='tozeroy',
-            mode='none',
-            #line_color='black',
-            fillcolor = 'rgba(255, 0, 0, 0.5)',
-            showlegend=False,  # Remove legend for Below 0
-        ))
-    
-    else:
-        # If no negative values, use a black line with dark blue (50% transparency) area chart
-        fig.add_trace(go.Scatter(
-            x=dataframe['Date'],
-            y=dataframe[y],
-            fill='tozeroy',
-            mode='lines',  # Add line with area fill
-            line_color='black',  # Black line color
-            fillcolor='rgba(0, 0, 139, 0.5)',  # Dark blue with 50% transparency
-            showlegend=False  # No legend needed for the single color
-        ))
+    # Add trace with no fill color (black line)
+    fig.add_trace(go.Scatter(
+        x=dataframe['Date'],
+        y=dataframe[y],
+        mode='lines',  # Just the line, no fill
+        line_color='black',  # Black line color
+        showlegend=False  # No legend needed for this trace
+    ))
 
     # Update layout for the figure
     fig.update_layout(
@@ -144,12 +111,12 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
         title_x=0.5,
         margin={'l': 0, 'r': 35},
         font=dict(family="Abel", size=15, color=colors['text']),
-        plot_bgcolor='white',
+        plot_bgcolor='white',  # Ensures the plot area has a white background
+        paper_bgcolor='white',  # Ensures the overall background is white
     )
 
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(tickformat=".1" + str(tick))
-    fig.layout.plot_bgcolor = 'white'
     
     # Conditional traces and other configurations
     if pred == True:
@@ -202,7 +169,7 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
     fig.update_layout(
         font=dict(family="Helvetica", size=15, color=COLORS['text']), 
         paper_bgcolor=colors['background'], 
-        plot_bgcolor='white',
+        plot_bgcolor='white',  # Ensure plot background is white
         yaxis_gridcolor=COLORS['border'], 
         xaxis_gridcolor=COLORS['border'], 
         height=700
@@ -215,11 +182,12 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
     return fig
 
 
+
 descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
 cardeconomy = dbc.Container([
-                    html.Div(children=[html.H1("Economy", style={}, className='headerfinvest'),
-                                        html.H1("Overview", style={'color':'rgba(61, 181, 105)'}, className='headerfinvest'),
-                                          ], className='page-intros', style={'margin':'15px'}),
+                    html.Div(children=[html.H1("Economy", style={'margin-right':'-5px'}, className='headerfinvest'),
+                                        html.H1("Overview", style={'color':'rgba(61, 181, 105)','margin-left':'0px'}, className='headerfinvest'),
+                                          ], className='page-intros', style={'margin':'15px', 'gap':'13px'}),
             html.Div(children=[descriptioneconomy], className='normal-text', style={'max-width':'75%', 'textAlign':'center', 'font-size':'1,5rem'}),
             html.Br(),
             dcc.Loading(  # Wrap the output component with Loading

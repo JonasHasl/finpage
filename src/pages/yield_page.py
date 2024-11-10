@@ -10,7 +10,7 @@ from fredapi import Fred
 import dash_bootstrap_components as dbc
 dash.register_page(__name__, path='/yield_curves')
 
-
+import dash_table
 import dash
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output
@@ -55,12 +55,19 @@ nor_yield_df.fillna(method='ffill', inplace=True)
 # Resample to monthly frequency
 nor_yield_monthly = nor_yield_df.resample('ME').last()
 
+
 # Update with today's data
 nor_today = pd.Timestamp(datetime.today().date())
 if not nor_yield_monthly.index.empty and nor_yield_monthly.index[-1] > nor_today:
     nor_last_yields = nor_yield_monthly.iloc[-1]
     nor_yield_monthly.loc[nor_today] = nor_last_yields
 nor_yield_monthly.sort_index(inplace=True)
+
+
+# Create Dash DataTable for historical yields
+nor_yield_monthly_reset = nor_yield_monthly.reset_index()
+nor_yield_monthly_reset.sort_values('Date', ascending=False, inplace=True)
+nor_yield_monthly_reset['Date'] = nor_yield_monthly_reset['Date'].dt.strftime('%d-%m-%Y')
 
 # For display in a table
 nor_last_yields = nor_yield_monthly.iloc[-1]
@@ -79,7 +86,7 @@ nor_static_yield_table = html.Table(
 )
 
 # Yield table header
-nor_yield_table_header = html.Div(f"Yields as of {nor_today.date()}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
+nor_yield_table_header = html.Div(f"Yields as of {nor_yield_monthly.index.max().date()}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
 
 # Define the layout for the Norwegian Yield Curve page (2nd Tab)
 norwegian_yield_curve_layout = html.Div([
@@ -93,13 +100,111 @@ norwegian_yield_curve_layout = html.Div([
     dcc.DatePickerRange(
         id='nor-date-picker-range',
         start_date=nor_yield_monthly.index.min().date(),
-        end_date=nor_today.date(),
+        end_date=nor_yield_monthly.index.max().date(),
         display_format='YYYY-MM-DD',
         style={'marginBottom': '20px'}
     ),
-    
-    # Graph
     dcc.Graph(id='nor-yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px'}),
+    
+    html.Div([
+        dash_table.DataTable(
+            id='yield-table',
+            columns=[{'name': col, 'id': col} for col in nor_yield_monthly_reset.columns],
+            data=nor_yield_monthly_reset.to_dict('records'),
+            editable=False,
+            filter_action="none",
+            # sort_action="native",
+            # sort_mode="multi",
+            column_selectable="single",
+            row_selectable=False,
+            row_deletable=False,
+            # page_current=0,
+            # page_size=10,
+            # selected_columns=[],
+            # selected_rows=[],
+            #scrollable = True,
+            # striped=True,
+            # virtualization=True,
+            # page_action="native",
+            fixed_columns={'headers' : True},
+            # page_current= 2,
+            # page_size= 5,
+            # style_as_list_view=True,
+            # fill_width=False,
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+                'width': 'auto',
+                'font-family': ['Arial'],
+                'color': 'black',
+                'font-size':'14px',
+            },
+            style_cell={
+                'padding': '10px',
+                'textAlign': 'right',
+                'backgroundColor': 'white'
+            },
+            style_cell_conditional=[{
+                'if': {
+                    'column_id': 'Date'
+                },
+                'textAlign': 'left',
+                #'backgroundColor': '#9fa4d8'
+            }] + [{
+                'if': {
+                    'column_id': c
+                },
+                'textAlign': 'left',
+                'backgroundColor': 'white'
+            } for c in ['Ticker', 'Company', 'Rank']],
+
+            style_header={
+                #'backgroundColor': colors['accent'],
+                'fontWeight': 'bold',
+                'color': 'black',
+                'whiteSpace': 'normal',
+                'border': '2px solid black',
+                'font-family': ['Arial'],
+                'font-size':'20px'
+            },
+            style_data_conditional=[  # style_data.c refers only to data rows
+                # {
+                #    'if': {
+                #        'row_index': 'odd'
+                #    },
+                #    'backgroundColor': 'white'
+                # },
+                {
+                    'if': {
+                        'column_id': 'Date'
+                    },
+                    # 'backgroundColor': 'grey',
+                    'fontWeight': 'bold',
+                },
+                {
+                    'if': {
+                        'column_id': 'Combined Score'
+                    },
+                    # 'backgroundColor': 'grey',
+                    'fontWeight': 'bold',
+                }
+
+            ],
+            style_table={
+                'height': 'auto',
+                'overflowX': 'auto',
+                # 'overflowY': 'None',
+                'width': 'auto',
+                # 'font-family': ['Open Sans', 'sans-serif']
+            },
+            style_filter={'textAlign': 'center', 'font-style': ['bold'],
+                            'font-family': ['Arial']}  
+              # Align Date column to the left
+        )
+    ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'borderRadius': '5px', 'marginBottom': '20px'}),
+
+
+
 ], style={'textAlign':'center'})
 
 # Initialize FRED API
@@ -107,7 +212,7 @@ FRED_API_KEY = '6188d31bebbdca093493a1077d095284'
 fred = Fred(FRED_API_KEY)
 
 # Define the observation period (e.g., last 10 years)
-observation_start = (datetime.today() - timedelta(days=40 * 365)).strftime('%Y-%m-%d')  # 10 years ago
+observation_start = (datetime.today() - timedelta(days=20 * 365)).strftime('%Y-%m-%d')  # 10 years ago
 
 # List of maturities and their corresponding FRED series IDs
 maturity_labels = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y']
@@ -128,7 +233,7 @@ yield_df.dropna(how='all', inplace=True)
 yield_df.fillna(method='ffill', inplace=True)
 
 # Resample data to quarterly frequency and include the last observation
-yield_df_quarterly = yield_df.resample('Q').last()
+yield_df_quarterly = yield_df.resample('QE').last()
 
 # Update the last date's yield values to today's date
 today = pd.Timestamp(datetime.today().date())
