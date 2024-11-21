@@ -53,6 +53,15 @@ header_banner = dbc.Navbar(
                                                             'textAlign':'right'
 
                                                         },), className='menuitemtop'),
+
+                dbc.NavItem(dbc.NavLink("Finvest", href="/Finvest", style={
+                        "border": "none",
+                        "color": '#7a7a7a',
+                        'text-transform': 'none',
+                        'font-size':'24px',
+                        'textAlign':'right'
+
+                    }), className='menuitemtop'),
                 
                 
                 dbc.NavItem(dbc.NavLink("Economy Overview", href="/economy", style={
