@@ -23,8 +23,9 @@ import dash_bootstrap_components as dbc
 import io
 import requests
 
+today = datetime.now().date().strftime('%Y-%m-%d')
 # The API URL for Norwegian Yield Curve
-nor_url = "https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod=2024-10-17&locale=en"
+nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod={today}&locale=en"
 
 # Send a GET request to the API
 nor_response = requests.get(nor_url)
@@ -58,9 +59,9 @@ nor_yield_monthly = nor_yield_df.resample('ME').last()
 
 # Update with today's data
 nor_today = pd.Timestamp(datetime.today().date())
-if not nor_yield_monthly.index.empty and nor_yield_monthly.index[-1] > nor_today:
-    nor_last_yields = nor_yield_monthly.iloc[-1]
-    nor_yield_monthly.loc[nor_today] = nor_last_yields
+# if not nor_yield_monthly.index.empty and nor_yield_monthly.index[-1] > nor_today:
+#     nor_last_yields = nor_yield_monthly.iloc[-1]
+#     nor_yield_monthly.loc[nor_today] = nor_last_yields
 nor_yield_monthly.sort_index(inplace=True)
 
 
@@ -240,7 +241,11 @@ today = pd.Timestamp(datetime.today().date())
 
 # If today's date already exists in the DataFrame, keep the values intact
 yield_df_quarterly.sort_index(inplace=True)
-
+yield_df_quarterly.columns = maturity_labels
+table_yields = yield_df_quarterly.reset_index()
+table_yields['Date'] = pd.to_datetime(table_yields['index']).dt.strftime('%Y-%m-%d')
+table_yields.drop('index', axis=1, inplace=True)
+table_yields.sort_values('Date', ascending=False, inplace=True)
 # Initialize static yield table data
 last_yields = yield_df_quarterly.iloc[-1]  # Get the latest yields
 static_table_content = [
@@ -276,6 +281,103 @@ tab1_content = html.Div([
     
     # 3D Yield Curve Graph
     dcc.Graph(id='yield-curve-3df', config={'scrollZoom': True}, style={'height': '1000px'}),
+    html.Br(),
+     html.Div([
+        dash_table.DataTable(
+            id='yield-table',
+            columns=[{'name': col, 'id': col} for col in table_yields.columns],
+            data=table_yields.to_dict('records'),
+            editable=False,
+            filter_action="none",
+            # sort_action="native",
+            # sort_mode="multi",
+            column_selectable="single",
+            row_selectable=False,
+            row_deletable=False,
+            # page_current=0,
+            # page_size=10,
+            # selected_columns=[],
+            # selected_rows=[],
+            #scrollable = True,
+            # striped=True,
+            # virtualization=True,
+            # page_action="native",
+            fixed_columns={'headers' : True},
+            # page_current= 2,
+            # page_size= 5,
+            # style_as_list_view=True,
+            # fill_width=False,
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+                'width': 'auto',
+                'font-family': ['Arial'],
+                'color': 'black',
+                'font-size':'14px',
+            },
+            style_cell={
+                'padding': '10px',
+                'textAlign': 'right',
+                'backgroundColor': 'white'
+            },
+            style_cell_conditional=[{
+                'if': {
+                    'column_id': 'Date'
+                },
+                'textAlign': 'left',
+                #'backgroundColor': '#9fa4d8'
+            }] + [{
+                'if': {
+                    'column_id': c
+                },
+                'textAlign': 'left',
+                'backgroundColor': 'white'
+            } for c in ['Ticker', 'Company', 'Rank']],
+
+            style_header={
+                #'backgroundColor': colors['accent'],
+                'fontWeight': 'bold',
+                'color': 'black',
+                'whiteSpace': 'normal',
+                'border': '2px solid black',
+                'font-family': ['Arial'],
+                'font-size':'20px'
+            },
+            style_data_conditional=[  # style_data.c refers only to data rows
+                # {
+                #    'if': {
+                #        'row_index': 'odd'
+                #    },
+                #    'backgroundColor': 'white'
+                # },
+                {
+                    'if': {
+                        'column_id': 'Date'
+                    },
+                    # 'backgroundColor': 'grey',
+                    'fontWeight': 'bold',
+                },
+                {
+                    'if': {
+                        'column_id': 'Combined Score'
+                    },
+                    # 'backgroundColor': 'grey',
+                    'fontWeight': 'bold',
+                }
+
+            ],
+            style_table={
+                'height': 'auto',
+                'overflowX': 'auto',
+                # 'overflowY': 'None',
+                'width': 'auto',
+                # 'font-family': ['Open Sans', 'sans-serif']
+            },
+            style_filter={'textAlign': 'center', 'font-style': ['bold'],
+                            'font-family': ['Arial']}  
+              # Align Date column to the left
+        )
+    ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'marginBottom': '20px'})
 ], style={'textAlign':'center'})
 
 # Assuming you want to add another page or data visualization to the second tab:
@@ -331,8 +433,8 @@ def update_norwegian_graph(start_date, end_date):
 
     # Create ticks
     x_ticks = pd.date_range(start=start_date, end=end_date, freq=tick_freq).to_list()
-    if nor_today not in x_ticks:
-        x_ticks.append(nor_today)
+    # if nor_today not in x_ticks:
+    #     x_ticks.append(nor_today)
 
     # Create the 3D surface plot
     fig = go.Figure(data=[go.Surface(
