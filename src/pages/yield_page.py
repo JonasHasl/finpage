@@ -58,7 +58,7 @@ nor_yield_monthly = nor_yield_df.resample('ME').last()
 
 
 # Update with today's data
-nor_today = pd.Timestamp(datetime.today().date())
+nor_today = datetime.today().date()
 # if not nor_yield_monthly.index.empty and nor_yield_monthly.index[-1] > nor_today:
 #     nor_last_yields = nor_yield_monthly.iloc[-1]
 #     nor_yield_monthly.loc[nor_today] = nor_last_yields
@@ -87,7 +87,7 @@ nor_static_yield_table = html.Table(
 )
 
 # Yield table header
-nor_yield_table_header = html.Div(f"Yields as of {nor_yield_monthly.index.max().date()}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
+nor_yield_table_header = html.Div(f"Yields as of {nor_today}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
 
 # Define the layout for the Norwegian Yield Curve page (2nd Tab)
 norwegian_yield_curve_layout = html.Div([
