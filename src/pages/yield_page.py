@@ -243,8 +243,9 @@ today = pd.Timestamp(datetime.today().date())
 yield_df_quarterly.sort_index(inplace=True)
 yield_df_quarterly.columns = maturity_labels
 table_yields = yield_df_quarterly.reset_index()
-table_yields['Date'] = pd.to_datetime(table_yields['index']).dt.strftime('%Y-%m-%d')
-table_yields.drop('index', axis=1, inplace=True)
+
+table_yields['index'] = pd.to_datetime(table_yields['index']).dt.strftime('%Y-%m-%d')
+table_yields.rename(columns={'index':'Date'}, inplace=True)
 table_yields.sort_values('Date', ascending=False, inplace=True)
 # Initialize static yield table data
 last_yields = yield_df_quarterly.iloc[-1]  # Get the latest yields
