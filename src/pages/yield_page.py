@@ -10,8 +10,9 @@ from fredapi import Fred
 import dash_bootstrap_components as dbc
 dash.register_page(__name__, path='/yield_curves')
 
-import dash_table
+
 import dash
+from dash import dash_table
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go

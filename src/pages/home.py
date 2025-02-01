@@ -16,18 +16,25 @@ layout = html.Div([
 
     html.Div([
                 html.Div([
+                    html.Div([html.A(html.Span("Finvest"), style={'display':'inline-block', 'font-size':'2rem','text-align':'center'}, className='headers', href="/Finvest")], style={'text-align':'center'}),
+                    dcc.Markdown("Create your own investment strategy based on your preferences")
+
+                ], className='page-intro', style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
+
+                html.Div([
                     html.Div([html.A(html.Span("US Economy"), style={'display':'inline-block', 'font-size':'2rem','text-align':'center'}, className='headers', href="/economy")], style={'text-align':'center'}),
                     dcc.Markdown("Key data representing the state of the US economy")
 
                 ], className='page-intro', style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
-
-                
 
                 html.Div([
                     html.Div([html.A([html.Span("Yield Curves")], style={'display':'inline-block', 'font-size':'2rem', 'width':'75%'}, className='headers', href="/yield_curves"),], style={'text-align':'center'}) ,
                     dcc.Markdown("Historical yield curves of US and Norwegian government bonds")
                 ], className='page-intro',
                 style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
+                
+
+
                 #html.Br(),
                ], className='page-intros fadeinelement', style={}),
 
