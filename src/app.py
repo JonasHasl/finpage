@@ -278,4 +278,4 @@ def find_free_port():
        return s.getsockname()[1]
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=find_free_port())
+    app.run_server(debug=True, host='0.0.0.0')
