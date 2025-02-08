@@ -1,6 +1,5 @@
-# Dash TApp finpage
+# Dash App finpage
 
-Created on 2024-10-16 10:33:05.937238
 
 ## Running the App
 
