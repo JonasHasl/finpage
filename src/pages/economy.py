@@ -41,7 +41,12 @@ COLORS = {
     'text-white': 'white',
 }
 
-economy = pd.read_csv("https://www.dropbox.com/scl/fi/4xgez6scpfj5sh46eokxa/econW.csv?rlkey=nk06610ol4qtck25uum6o3n5l&st=wt5378pm&dl=1").drop(['Unnamed: 0', 'level_0'], axis=1)
+
+file_id = '1wuHaOwqhwGgCV6YpwMhVo0UMajzxfNcW'
+download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+economy = pd.read_csv(download_url)
+
+#economy = pd.read_csv("https://www.dropbox.com/scl/fi/4xgez6scpfj5sh46eokxa/econW.csv?rlkey=nk06610ol4qtck25uum6o3n5l&st=wt5378pm&dl=1").drop(['Unnamed: 0', 'level_0'], axis=1)
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
 #'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
 economy['InflationExp'] = economy['InflationExp'] / 100

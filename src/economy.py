@@ -41,7 +41,12 @@ COLORS = {
     'text-white': 'white',
 }
 
-economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=qj1xch6m&dl=1')
+
+file_id = '1wuHaOwqhwGgCV6YpwMhVo0UMajzxfNcW'
+download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+economy = pd.read_csv(download_url)
+
+#economy = pd.read_csv('https://www.dropbox.com/scl/fi/ef4rdhx9um2qyrh86narg/econW.csv?rlkey=3f75oiakw1wn6yntyv4twj5io&st=qj1xch6m&dl=1')
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
 #'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
 economy['InflationExp'] = economy['InflationExp'] / 100
@@ -333,6 +338,8 @@ cardeconomy = dbc.Container([
 
 layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
     className='')
+
+
 
 @callback(
     Output("update-output", "children"),
