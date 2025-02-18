@@ -42,7 +42,7 @@ COLORS = {
 }
 
 
-file_id = '1wuHaOwqhwGgCV6YpwMhVo0UMajzxfNcW'
+file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
 download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
 economy = pd.read_csv(download_url)
 
