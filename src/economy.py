@@ -12,7 +12,7 @@ from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
-dash.register_page(__name__, path='/economy')
+#dash.register_page(__name__, path='/economy')
 
 
 colors = {
