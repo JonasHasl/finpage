@@ -43,7 +43,7 @@ header_banner = dbc.Navbar(
     [
 
         dbc.Nav(
-            [html.A("", href="/", style={'font-size':'2.5rem', 'font-weight':'lighter', 'color': '#7a7a7a', 'margin-right': 'auto', 'margin-left':'20px'} ),
+            [html.A("", href="/", style={'font-size':'24px', 'font-weight':'lighter', 'color': '#7a7a7a', 'margin-right': 'auto', 'margin-left':'20px'} ),
                 html.Div([
                 dbc.NavItem(dbc.NavLink("Home", href="/", style={
                                                             "border": "none",
@@ -279,3 +279,4 @@ def find_free_port():
 
 if __name__ == '__main__':
     app.run_server(debug=True)#, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
+

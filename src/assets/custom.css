@@ -695,8 +695,12 @@ justify-content: space-between;
 }
 
 @media (max-width: 950px) {
-  .menuitemtop{
-    zoom:2;
+ /* .menuitemtop{
+     zoom:2; 
+
+  }*/
+  .parent-container2{
+    padding-top: 20px;
 
   }
   .finvest-menu-container{
@@ -722,11 +726,17 @@ justify-content: space-between;
   #output_div2 {
   display: block;
   }
+  .headerfinvest{
+    font-size: 2rem;
+    margin: unset;
+
+  }
   .banner-row {
   flex-direction:column;
   flex-wrap:wrap;
   justify-content: flex-start;
   align-items: center;
+  gap: 10px;
   }
   .page-intros{
   flex-direction: column;
@@ -752,13 +762,7 @@ justify-content: space-between;
 
   .informationtext{
   display:block;}
-
-  .headerfinvest {
-  font-size:4rem;
-  margin: initial;
-
-
-  }
+  
   .parent-row{
   flex-direction:column;
   align-items:center;

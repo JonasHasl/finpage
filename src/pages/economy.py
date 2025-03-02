@@ -12,7 +12,7 @@ from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
-dash.register_page(__name__, path='/economy')
+#dash.register_page(__name__, path='/economy')
 
 
 colors = {
@@ -203,15 +203,59 @@ cardeconomy = dbc.Container([
             html.Hr(),
 
         html.Div([
-                dcc.Graph(
-                    figure=create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'YoY', tick='%',
-                                        starts='1995-01-01', ends=str(datetime.today()), YoY=True),  className='graph',
-                    style={'border-right': '1px rgba(1, 1, 1, 1)'})
+            dcc.Graph(
+                figure=create_graph(colors['accent'], 'Yield', '10-yr Treasury Yield %', economy, 'TenYield', tick='%',
+                                    starts='2010-01-01', ends=str(datetime.today())), style={},  className='graph'),
                 # width={'size':5, 'offset':1, 'order':1},
 
                 # xs=6, sm=6, md=6, lg=5, xl=5
 
-                ,
+                
+                html.Div([
+
+                    dcc.Graph(figure=create_graph(colors['accent'], 'Shiller P/E Ratio', 'Shiller P/E Ratio', economy,
+                                                  'Shiller_P/E',
+                                                  tick=' ', starts='2000-01-01', ends=str(datetime.today())), className='graph'),
+                ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
+
+                ), # className='graph-right')
+        ], className='parent-row', style={'margin':'5px'}),
+
+        html.Div([
+            
+            dcc.Graph(figure=create_graph(colors['accent'], 'Price', 'S&P 500 Index', economy,
+                                          'Close', tick=' ', starts='1985-01-01',
+                                          ends=str(datetime.today())), className='graph'),
+
+                html.Div([
+
+                    dcc.Graph(
+                    figure=create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'YoY', tick='%',
+                                        starts='1995-01-01', ends=str(datetime.today()), YoY=True),  className='graph',
+                    style={'border-right': '1px rgba(1, 1, 1, 1)'})
+
+
+                                            
+                ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
+
+                ),
+                # width={'size':5, 'offset':1, 'order':1},
+
+                # xs=6, sm=6, md=6, lg=5, xl=5
+
+        ], className='parent-row', style={}),
+
+
+        html.Div([
+                dcc.Graph(
+                        figure=create_graph(colors['accent'], 'Interest to Income Ratio', 'Federal Interest Payments to Revenues Ratio', df,
+                                            'Interest to Income Ratio', tick='%', starts='1985-01-01',
+                                            ends=str(datetime.today())), className='graph'),
+                # width={'size':5, 'offset':1, 'order':1},
+
+                # xs=6, sm=6, md=6, lg=5, xl=5
+
+                
                 html.Div([
 
                     dcc.Graph(
@@ -224,24 +268,6 @@ cardeconomy = dbc.Container([
                 ), # className='graph-right')
         ], className='parent-row', style={'overflow': 'visible'}),
 
-        html.Div([
-            dcc.Graph(
-                figure=create_graph(colors['accent'], 'Yield', '10-yr Treasury Yield %', economy, 'TenYield', tick='%',
-                                    starts='2010-01-01', ends=str(datetime.today())), style={},  className='graph')
-                # width={'size':5, 'offset':1, 'order':1},
-
-                # xs=6, sm=6, md=6, lg=5, xl=5
-
-                ,
-                html.Div([
-
-                    dcc.Graph(figure=create_graph(colors['accent'], 'Shiller P/E Ratio', 'Shiller P/E Ratio', economy,
-                                                  'Shiller_P/E',
-                                                  tick=' ', starts='2000-01-01', ends=str(datetime.today())), className='graph'),
-                ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
-
-                ), # className='graph-right')
-        ], className='parent-row', style={'margin':'5px'}),
 
         html.Div([
             dcc.Graph(figure=create_graph(colors['accent'], 'T10Y2Y', '10-y 2-y Spread', economy,
@@ -262,25 +288,6 @@ cardeconomy = dbc.Container([
                 ), # className='graph-right')
         ], className='parent-row', style={'margin':'5px'}),
 
-        html.Div([
-            dcc.Graph(figure=create_graph(colors['accent'], 'Price', 'S&P 500 Index', economy,
-                                          'Close', tick=' ', starts='1985-01-01',
-                                          ends=str(datetime.today())), className='graph'),
-
-                html.Div([
-
-                    dcc.Graph(
-                        figure=create_graph(colors['accent'], 'Interest to Income Ratio', 'Federal Interest Payments to Revenues Ratio', df,
-                                            'Interest to Income Ratio', tick='%', starts='1985-01-01',
-                                            ends=str(datetime.today())), className='graph'),
-                ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
-
-                ),
-                # width={'size':5, 'offset':1, 'order':1},
-
-                # xs=6, sm=6, md=6, lg=5, xl=5
-
-        ], className='parent-row', style={}),
 
 
         html.Div([
@@ -307,24 +314,3 @@ cardeconomy = dbc.Container([
 layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
     className='')
 
-@callback(
-    Output("update-output", "children"),
-    [Input("update-button", "n_clicks")]
-)
-def run_update(n_clicks):
-    if n_clicks is None:
-        return ""
-    else:
-        try:
-            economy = update_dropbox_dataset()
-            latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
-            #'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
-            economy['InflationExp'] = economy['InflationExp'] / 100
-            economy['unemp_rate'] = economy['unemp_rate'] / 100
-            economy['TenYield'] = economy['TenYield'] / 100
-            economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
-            economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
-            economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
-            return f"Dataset updated successfully!"
-        except Exception as e:
-            return f"Error updating dataset: {e}"
