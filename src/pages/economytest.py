@@ -1,16 +1,15 @@
-#!/usr/bin/env python
-# coding: utf-8
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta, date  # Import date
 import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
-from update_script import update_dropbox_dataset
+#from update_script import update_dropbox_dataset #Commented out due to missing script
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
+from fredapi import Fred
 
 dash.register_page(__name__, path='/economy')
 
@@ -40,53 +39,50 @@ COLORS = {
     'text-white': 'white',
 }
 
-file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
-download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-economy = pd.read_csv(download_url)
+# Global variables to store the data
+economy = pd.DataFrame()
+df = pd.DataFrame()
 
-# economy = pd.read_csv("https://www.dropbox.com/scl/fi/4xgez6scpfj5sh46eokxa/econW.csv?rlkey=nk06610ol4qtck25uum6o3n5l&st=wt5378pm&dl=1").drop(['Unnamed: 0', 'level_0'], axis=1)
+def load_data():
+    """Loads the data from the Google Drive and FRED API."""
+    global economy, df
+
+    file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
+    download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    economy = pd.read_csv(download_url)
+
+    economy['InflationExp'] = economy['InflationExp'] / 100
+    economy['unemp_rate'] = economy['unemp_rate'] / 100
+    economy['TenYield'] = economy['TenYield'] / 100
+    economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
+    economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
+    economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
+    economy['Close'] = round(economy['Close'], 2)
+
+
+    FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
+    fred = Fred(FRED_API_KEY)
+
+    interest_payments = fred.get_series('A091RC1Q027SBEA')
+    government_revenue = fred.get_series('FGRECPT')
+
+    interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
+    revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
+
+    df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
+    df.index = pd.to_datetime(df.index)
+    df.reset_index(inplace=True)
+    df.rename(columns={'index': 'Date'}, inplace=True)
+
+    df['Interest to Income Ratio'] = ((df['Interest Payments']) / df['Total Revenue'])
+    df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'], 2)
+
+    print("Data Loaded Successfully") #Added print to confirm if data loaded.
+
+# Load the data initially
+load_data()
+
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
-# 'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
-economy['InflationExp'] = economy['InflationExp'] / 100
-economy['unemp_rate'] = economy['unemp_rate'] / 100
-economy['TenYield'] = economy['TenYield'] / 100
-economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
-economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
-economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
-economy['Close'] = round(economy['Close'], 2)
-from fredapi import Fred
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# Initialize FRED API
-FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
-fred = Fred(FRED_API_KEY)
-# Retrieve data from FRED
-# Series ID for Interest Payments: FGEXPND
-# Series ID for Government Receipts: FGRECPT
-interest_payments = fred.get_series('A091RC1Q027SBEA')
-government_revenue = fred.get_series('FGRECPT')
-# interesttogdp = fred.get_series('FYOIGDA188S')
-# tenyear = fred.get_series('DGS10').resample('AS-JAN').first()
-
-# Convert the data into a DataFrame for easier handling
-interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
-revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
-# interesttogdp_df = pd.DataFrame(interesttogdp, columns=['Interest to GDP'])
-# tenyear_df = pd.DataFrame(tenyear, columns=['10-year'])
-# Merge the two datasets on the date index
-df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
-# df = pd.merge(df, interesttogdp_df,  left_index=True, right_index=True)
-# df = pd.merge(df, tenyear_df,  left_index=True, right_index=True)
-# Convert the index to a datetime index and extract the year
-df.index = pd.to_datetime(df.index)
-df.reset_index(inplace=True)
-df.rename(columns={'index': 'Date'}, inplace=True)
-
-# Calculate the interest-to-income ratio
-df['Interest to Income Ratio'] = ((df['Interest Payments']) / df['Total Revenue'])
-df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'], 2)
-
 
 def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False,
                  hline0=False,
@@ -208,9 +204,8 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
 
     return fig
 
-
 # description
-descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
+descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest date in the dataset: {latestdate}'''
 cardeconomy = dbc.Container([
     html.Div(children=[html.H1("Economy", style={'margin-right': '-5px'}, className='headerfinvest'),
                        html.H1("Overview", style={'color': 'rgba(61, 181, 105)', 'margin-left': '0px'},
@@ -231,7 +226,7 @@ cardeconomy = dbc.Container([
         dcc.DatePickerRange(
             id='date-picker-range',
             start_date=date(2010, 1, 1),  # Default start date
-            end_date=date.today(),
+            end_date=latestdate,
             display_format='YYYY-MM-DD'
         ),
         html.Br(),
@@ -332,7 +327,12 @@ cardeconomy = dbc.Container([
     ], className='graph', style={'width': '80%'}
 
     ),
-    html.Br()
+    html.Br(),
+    dcc.Interval(  # Add dcc.Interval component
+        id='interval-component',
+        interval=6 * 60 * 60 * 1000,  # 6 hours in milliseconds
+        n_intervals=0
+    )
 
 ], className='parent-container2', fluid=True, style={})
 
@@ -350,12 +350,22 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
      Output('money-supply-graph', 'figure'),
      Output('t10y2y-graph', 'figure'),
      Output('unemployment-graph', 'figure'),
-     Output('combined-economy-graph', 'figure')],
+     Output('combined-economy-graph', 'figure'),
+     Output('update-output', 'children')],  # Added Output for the update message
     [Input('date-picker-range', 'start_date'),
      Input('date-picker-range', 'end_date'),
-     Input('date-range-selector', 'value')]
+     Input('date-range-selector', 'value'),
+     Input('interval-component', 'n_intervals')]  # Added Input from dcc.Interval
 )
-def update_all_graphs(start_date, end_date, range_selector):
+def update_all_graphs(start_date, end_date, range_selector, n_intervals):
+    """Updates all graphs based on date range and interval."""
+    global economy, df #Accessing global variables
+
+    # Reload data every 6 hours
+    if n_intervals > 0:
+        load_data()
+        print(f"Data reloaded at interval: {n_intervals}")
+
     if range_selector == 'ytd':
         start_date = date(datetime.now().year, 1, 1)  # Set start_date to Jan 1 of current year
         end_date = date.today()  # Set end_date to today
@@ -392,5 +402,11 @@ def update_all_graphs(start_date, end_date, range_selector):
                                     tick=' ', starts=start_date, ends=end_date, hline1=True,
                                     textbox=True, Score=True)
 
+    #Update the  description with the latest date
+    latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
+    description = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
+
+    # Return all figures and the update message
     return (ten_year_yield, shiller_pe, sp500, inflation, interest_to_income, money_supply,
-            t10y2y, unemployment, combined_economy)
+            t10y2y, unemployment, combined_economy,
+            f"Last check for new updates: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}" )
