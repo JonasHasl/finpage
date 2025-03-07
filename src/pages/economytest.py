@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, date  # Import date
 import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
-#from update_script import update_dropbox_dataset #Commented out due to missing script
+from update_script import update_dataset #Commented out due to missing script
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
@@ -359,10 +359,12 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
 )
 def update_all_graphs(start_date, end_date, range_selector, n_intervals):
     """Updates all graphs based on date range and interval."""
+
     global economy, df #Accessing global variables
 
     # Reload data every 6 hours
     if n_intervals > 0:
+        economy = update_dataset()
         load_data()
         print(f"Data reloaded at interval: {n_intervals}")
 
