@@ -1,22 +1,32 @@
-
-
-def update_dropbox_dataset():
+def update_dataset():
     
+
+    import time
+    import os
+
+    # Get the directory of the current script
+    #script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Change the current working directory to the script's directory
+    #os.chdir(script_dir)
+
+    # Record the start time
+    start_time = time.time()
 
     import pandas as pd
     from matplotlib import pyplot
-    from keras.models import Sequential
-    from keras.layers import Dense
-    from keras.layers import LSTM
-    from tensorflow.keras import layers
-    from tensorflow.keras.callbacks import ModelCheckpoint
-    from tensorflow.keras.callbacks import EarlyStopping
-    from tensorflow.keras.optimizers import SGD
-    from keras.models import load_model
-
+    # from keras.models import Sequential
+    # from keras.layers import Dense
+    # from keras.layers import LSTM
+    # from tensorflow.keras import layers
+    # from tensorflow.keras.callbacks import ModelCheckpoint
+    # from tensorflow.keras.callbacks import EarlyStopping
+    # from tensorflow.keras.optimizers import SGD
+    # from keras.models import load_model
     from numpy import array
     from numpy import hstack
-
+    import dropbox
+    import io
     import pandas_datareader.data as web
     import datetime
     import numpy as np
@@ -28,6 +38,8 @@ def update_dropbox_dataset():
     from fredapi import Fred
 
     FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
+    token = 'sl.u.AFjjQNO3MVo7z6zjW1yPvaECsPeQxJSSK-pSyNB_lzRRvhdAf_Yta04g4UhsGWFZ5yidFS81E_c472AdQU_KM4daRjA-eWqHjfBsG32cqClBFVYShrFURRkxooHaMTeA46TkX3147_SeIdYcfJHbfnPVwlk9MY4phWGjJc8zTLt3a0qNlyz-h_kAWYhQUJw2ik3QegCmhAUNW5qn9cTi8ba9HwF-R0aDv_GEcPoajRSvp9C-N59zrCiFuAKbPrvOXKItJGJ_YTY006Lpxo__oNE2kzTMOyIh9qnzDcIioxT0bJnGo7tA4-3to-tmeeILZyh1xMT-75mCDnNN54Ys9B6Bawmfyi5wp2DGvQlGZ5jgD5mux3fGdwezx75spblhHFf-ha5ZGKmzZWlIbGWx7zYwfxN9CDemMEZ1Y5-dQuWiyjTasM5cAr1C_uH9meriN7poaBMJr1wxQIs4Nuw1KTs4nq5Xp7mV2EY0yy6Rkk-ugiyYzcnswBTahsngnvDyJ0D6s_4fmfJRW8Zji3wotpYFzmuWrf2-fG-C8xXGqWXae9qBatS9FmyQNpuOAVP5Jjhp_6GvZz8np6lb-mMbnL_S1ieTKmb_aPFl01vlwfGw44OxY6ys741_MVCf2sl6q3q2HDuIb2P5NEAkDhpBNcMmoOJtRXqBudrhF7Oj9jEb1dZ47ZooFe2Rk21mk00j6MyHW7Ro4wblwSib3P-ZULQn6MwIPP4CTmyZxTfVHosgY9F2t9hmHlW9umQuw7LeC8riA_fw5Hk-PSqUhDio0KMRc-IujybUVXkcwaLXvAqYpBIq1H8T-YlJXNcnLF1rRne9kk8EZaStyY28Vsns8p5sNzHZAQ4mfD9U-hhIS05nlli7p2Go2uJx_QXIRUxCyeCzCHHMlsEHBh548N3evwVkXNDYImMx61lG-h8vjNqKK7VPKSkdSjV2FHzS4VWoGixIMGLgrY-d4PrQTGeiA5lwOsL4i7S4aokNxx8VN-9Ym8FHmkvu3fPvX2FQmLPBe9Pt1-mi66D3Q6j34YKz45NO3cg36gfyFlmKfkkkn8868HaBYyhh7tYVQJ2-iK7wAM7HoBugTLVPo1FPie6tXnn0m8W-B6PhrBps2ebSJHBHru7-HFrd2INlN0Rn7K1bqHvvthlTQoxGV2LbJb3Fk2ks9VnlJzUv7ZYAioRgQPvNfXvUU2xbJXwRfbmGVUXeeYtmCQToEUB7wi4A4OWAWjMhi6rO_w83gk6hGmIeymQ06nLl8SL-RJVSP78yLp5v_jWAvTX2KUJKyBYRXFSTeJ88EvRLw10UR-pF00Vpzo6fLA'
+
     fred = Fred(FRED_API_KEY)
 
     #%matplotlib inline
@@ -44,7 +56,7 @@ def update_dropbox_dataset():
     from fredapi import Fred
     import yfinance as yf
 
-    SP = yf.Ticker("^GSPC").history(period='max')
+    #SP = yf.Ticker("^GSPC").history(period='max')
 
 
     start = datetime.datetime(1980, 1, 1)
@@ -67,8 +79,6 @@ def update_dropbox_dataset():
     spread.loc[spread['T10Y2Y'].rolling(window=153, min_periods=1).min() < 0, 'Inverted12months'] = 1
     spread.loc[spread['T10Y2Y'].rolling(window=153, min_periods=1).min() > 0, 'Inverted12months'] = 0
         
-        
-        
     SP = yf.Ticker("^GSPC").history(period='max').reset_index()
     Stock = pd.DataFrame(SP[['Date', 'Close']]).copy()
 
@@ -84,7 +94,6 @@ def update_dropbox_dataset():
     #Stock = Stock.drop('NotDate', axis=1)
 
     Stock['SP Daily Return'] = Stock['Close'].pct_change()
-    Stock
     Stock['SP Trailing 4 Weeks Return'] = Stock['SP Daily Return'].shift(1).rolling(21, min_periods=21).apply(lambda x: np.prod(1 + x) - 1).fillna(0)
     Stock['SP Trailing 1 Week Return'] = Stock['SP Daily Return'].shift(1).rolling(7, min_periods=7).apply(lambda x: np.prod(1 + x) - 1).fillna(0)
 
@@ -113,7 +122,7 @@ def update_dropbox_dataset():
     #import dateutil.relativedelta
 
     #years_ago = datetime.datetime.now() - relativedelta(years=7)
-    release_dates['Date'] = release_dates['Release Date']- pd.DateOffset(months=1)
+    release_dates['Date'] = release_dates['Release Date'] - pd.DateOffset(months=1)
 
     #
 
@@ -123,33 +132,34 @@ def update_dropbox_dataset():
     FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
     fred = Fred(FRED_API_KEY)
 
-    cpius = fred.get_series_all_releases('CPIAUCNS')
+    cpius = fred.get_series_all_releases('CPIAUCNS', realtime_start=start.date())
+
+    cpius = cpius.drop('date', axis=1).rename(columns={'realtime_start' : 'Date'}).set_index('Date')
+    cpius = cpius.sort_index()
+
+    cpius.reset_index(inplace= True)
+    cpius = cpius.drop_duplicates(subset='Date', keep='last')
+    # cpius = cpius.drop_duplicates('Date', keep='last')
     cpius['MoM'] = cpius['value'].pct_change()
     cpius['YoY'] = cpius['value'].pct_change(periods=12)
     cpius['RollingMean12'] = cpius['value'].pct_change(periods=12).rolling(12, min_periods=1).mean()
-    cpius = cpius.rename({'date':'Date'}, axis=1)
-    cpius.reset_index(inplace= True)
+
+    #cpius.reset_index(inplace= True)
     cpius['Date'] = pd.to_datetime(cpius['Date']) 
 
-    cpius = cpius.merge(release_dates, on="Date")
+    # cpius = cpius.merge(release_dates, on="Date")
 
-    cpius = cpius.drop('Date', axis=1).rename(columns={'Release Date' : 'Date'}).set_index('Date')
-    cpius.reset_index(inplace= True)
+    # cpius = cpius.drop('Date', axis=1).rename(columns={'Release Date' : 'Date'}).set_index('Date')
+    # cpius.reset_index(inplace= True)
     cpius.rename({'value':'CPIUS'}, axis=1, inplace=True)
-
-        
-        
-        
         
         
     #%matplotlib inline
-
     #from requests_html import AsyncHTMLSession
     figsize(20, 5)
-
     pd.options.display.max_colwidth = 60
 
-    m2 = fred.get_series_all_releases('M2SL')
+    m2 = fred.get_series_all_releases('M2SL', realtime_start=start.date())
     m2['date'] = pd.to_datetime(m2['date'])
     m2['value'] = m2['value'].astype(float)
     m2['m2_growth'] = m2['value'].pct_change(periods=12)
@@ -185,7 +195,7 @@ def update_dropbox_dataset():
     #     # lei['Date'] = pd.to_datetime(lei['Date'])
     #     # lei.rename(columns={'value':'lei'}, inplace=True)
         
-    unemp = fred.get_series_all_releases('UNRATE')
+    unemp = fred.get_series_all_releases('UNRATE', realtime_start=start.date())
     unemp['date'] = pd.to_datetime(unemp['date'])
     unemp['value'] = unemp['value'].astype(float)
 
@@ -299,7 +309,7 @@ def update_dropbox_dataset():
     # consumer_credit['Date'] = pd.to_datetime(consumer_credit['Date'])
     # consumer_credit.rename(columns={'value':'consumer_credit_growth'}, inplace=True)
     # consumer_credit
-    composite_confidence = fred.get_series_all_releases('CSCICP03USM665S') #Total Consumer Credit
+    composite_confidence = fred.get_series_all_releases('CSCICP03USM665S', realtime_start=start.date()) 
     composite_confidence['date'] = pd.to_datetime(composite_confidence['date'])
     composite_confidence.drop_duplicates(subset='date', keep='first', inplace=True)
     composite_confidence.head(20)
@@ -320,7 +330,7 @@ def update_dropbox_dataset():
     composite_confidence['RollingComp'] = composite_confidence.adjusted_value.rolling(12).mean()
     composite_confidence
 
-    inflation_exp = fred.get_series_all_releases('MICH') #Total Consumer Credit
+    inflation_exp = fred.get_series_all_releases('MICH', realtime_start=start.date()) #Total Consumer Credit
     inflation_exp['date'] = pd.to_datetime(inflation_exp['date'])
     inflation_exp.drop_duplicates(subset='date', keep='first', inplace=True)
     inflation_exp.head(20)
@@ -340,7 +350,7 @@ def update_dropbox_dataset():
     inflation_exp['RollingExpInfl'] = inflation_exp.inflation_exp_yoy.rolling(12).mean()
     inflation_exp
 
-    consumer_confidence = fred.get_series_all_releases('UMCSENT') #Total Consumer Credit
+    consumer_confidence = fred.get_series_all_releases('UMCSENT', realtime_start=start.date()) #Total Consumer Credit
     consumer_confidence.dropna(inplace=True)
     consumer_confidence['date'] = pd.to_datetime(consumer_confidence['date'])
     consumer_confidence.drop_duplicates(subset='date', keep='first', inplace=True)
@@ -361,26 +371,12 @@ def update_dropbox_dataset():
     consumer_confidence['RollingConsConf'] = consumer_confidence.consumer_conf_yoy.rolling(12).mean()
     consumer_confidence
 
-    consumer_credit = fred.get_series_all_releases('TOTLL') #Total Consumer Credit
-    consumer_credit.dropna(inplace=True)
-    consumer_credit['date'] = pd.to_datetime(consumer_credit['date'])
-    consumer_credit.drop_duplicates(subset='date', keep='first', inplace=True)
-    consumer_credit.head(20)
-    consumer_credit['adjusted_value'] = consumer_credit['value'].shift(2).astype(float)
-    consumer_credit['consumer_conf_yoy'] = consumer_credit['adjusted_value'].pct_change(periods=12)
-    consumer_credit['MoMConsumerConf'] = consumer_credit['consumer_conf_yoy'].pct_change()
-    consumer_credit
+    import_end = time.time()
 
-    #consumer_credit = consumer_credit.drop('date', axis=1).rename(columns={'realtime_start' : 'Date'}).set_index('Date')
+    # Calculate the elapsed time
+    elapsed_time = import_end - start_time
+    print(f"Elapsed time imports: {elapsed_time:.2f} seconds")
 
-    #consumer_credit.reset_index(inplace= True)
-    #consumer_credit =consumer_credit.drop_duplicates('Date', keep='last')
-    consumer_credit['date'] = pd.to_datetime(consumer_credit['date'])
-    consumer_credit.rename(columns={'date':'Date'}, inplace=True)
-
-    consumer_credit = consumer_credit.drop(['realtime_start', 'value', 'adjusted_value'], axis=1).set_index('Date').reset_index()
-    consumer_credit['RollingConsConf'] = consumer_credit.consumer_conf_yoy.rolling(12).mean()
-    consumer_credit
     # df = fred.search('ism')
     # #TOTALNS# ( Consumer Credit)
     # #TOTLL # Loans and leases
@@ -393,50 +389,50 @@ def update_dropbox_dataset():
     # df.iloc[0,3]
     # df
 
-    housing = fred.get_series_all_releases('HSN1F') #Total Consumer Credit
-    housing.dropna(inplace=True)
-    housing['date'] = pd.to_datetime(housing['date'])
+    # housing = fred.get_series_all_releases('HSN1F') #Total Consumer Credit
+    # housing.dropna(inplace=True)
+    # housing['date'] = pd.to_datetime(housing['date'])
 
-    housing.drop_duplicates(subset='date', keep='first', inplace=True)
-    housing['adjusted_value'] = housing['value'].shift(2).astype(float)
-    housing['housing_yoy'] = housing['adjusted_value'].pct_change(periods=12)
-    housing['MoMRetail'] = housing['housing_yoy'].pct_change()
-    housing
+    # housing.drop_duplicates(subset='date', keep='first', inplace=True)
+    # housing['adjusted_value'] = housing['value'].shift(2).astype(float)
+    # housing['housing_yoy'] = housing['adjusted_value'].pct_change(periods=12)
+    # housing['MoMRetail'] = housing['housing_yoy'].pct_change()
+    # housing
 
-    #consumer_credit = consumer_credit.drop('date', axis=1).rename(columns={'realtime_start' : 'Date'}).set_index('Date')
+    # #consumer_credit = consumer_credit.drop('date', axis=1).rename(columns={'realtime_start' : 'Date'}).set_index('Date')
 
-    #consumer_credit.reset_index(inplace= True)
-    #consumer_credit =consumer_credit.drop_duplicates('Date', keep='last')
-    housing['date'] = pd.to_datetime(housing['date'])
-    housing.rename(columns={'date':'Date'}, inplace=True)
+    # #consumer_credit.reset_index(inplace= True)
+    # #consumer_credit =consumer_credit.drop_duplicates('Date', keep='last')
+    # housing['date'] = pd.to_datetime(housing['date'])
+    # housing.rename(columns={'date':'Date'}, inplace=True)
 
-    housing = housing.drop(['realtime_start', 'value', 'adjusted_value'], axis=1).set_index('Date').reset_index()
-    housing['RollingHousing'] = housing.housing_yoy.rolling(12).mean()
+    # housing = housing.drop(['realtime_start', 'value', 'adjusted_value'], axis=1).set_index('Date').reset_index()
+    # housing['RollingHousing'] = housing.housing_yoy.rolling(12).mean()
 
 
-    claims = fred.get_series_all_releases('CFSBCACTIVITYNMFG') #Total Consumer Credit
-    claims.dropna(inplace=True)
+    # claims = fred.get_series_all_releases('CFSBCACTIVITYNMFG') #Total Consumer Credit
+    # claims.dropna(inplace=True)
 
-    claims = fred.get_series_all_releases('CFSBCACTIVITYNMFG') #Total Consumer Credit
-    claims.dropna(inplace=True)
-    claims['date'] = pd.to_datetime(claims['date'])
+    # claims = fred.get_series_all_releases('CFSBCACTIVITYNMFG') #Total Consumer Credit
+    # claims.dropna(inplace=True)
+    # claims['date'] = pd.to_datetime(claims['date'])
 
-    claims.drop_duplicates(subset='date', keep='first', inplace=True)
-    claims['adjusted_value'] = claims['value'].shift(2).astype(float)
-    claims['housing_yoy'] = claims['adjusted_value'].pct_change(periods=12)
-    claims['MoMRetail'] = claims['housing_yoy'].pct_change()
-    claims
+    # claims.drop_duplicates(subset='date', keep='first', inplace=True)
+    # claims['adjusted_value'] = claims['value'].shift(2).astype(float)
+    # claims['housing_yoy'] = claims['adjusted_value'].pct_change(periods=12)
+    # claims['MoMRetail'] = claims['housing_yoy'].pct_change()
+    # claims
 
-    #consumer_credit = consumer_credit.drop('date', axis=1).rename(columns={'realtime_start' : 'Date'}).set_index('Date')
+    # #consumer_credit = consumer_credit.drop('date', axis=1).rename(columns={'realtime_start' : 'Date'}).set_index('Date')
 
-    #consumer_credit.reset_index(inplace= True)
-    #consumer_credit =consumer_credit.drop_duplicates('Date', keep='last')
-    claims['date'] = pd.to_datetime(claims['date'])
-    claims.rename(columns={'date':'Date'}, inplace=True)
+    # #consumer_credit.reset_index(inplace= True)
+    # #consumer_credit =consumer_credit.drop_duplicates('Date', keep='last')
+    # claims['date'] = pd.to_datetime(claims['date'])
+    # claims.rename(columns={'date':'Date'}, inplace=True)
 
-    claims = claims.drop(['realtime_start', 'value', 'adjusted_value'], axis=1).set_index('Date').reset_index()
-    claims['RollingHousing'] = claims.housing_yoy.rolling(12).mean()
-    claims
+    # claims = claims.drop(['realtime_start', 'value', 'adjusted_value'], axis=1).set_index('Date').reset_index()
+    # claims['RollingHousing'] = claims.housing_yoy.rolling(12).mean()
+    # claims
     # claims = fred.get_series_all_releases('ICSA')
     # claims.dropna(inplace=True)
     # claims['date'] = pd.to_datetime(claims['date'])
@@ -462,7 +458,7 @@ def update_dropbox_dataset():
     import pytz
 
     time_zone = 'America/New_York'
-    dfs = [completedates, Stock, cpius, m2, yieldmin, unemp, spread, shiller, consumer_confidence, inflation_exp, composite_confidence, housing]
+    dfs = [completedates, Stock, cpius, m2, yieldmin, unemp, spread, shiller, consumer_confidence, inflation_exp, composite_confidence]
     for df in dfs:
         #df = df.reset_index()
         for col in df.columns:
@@ -477,33 +473,11 @@ def update_dropbox_dataset():
         
 
 
-    econ = completedates.merge(Stock, on='Date', how='left').drop('index', axis=1).merge(cpius, on='Date', how='left').drop('index', axis=1).merge(m2, on='Date', how='left').merge(yieldmin, on='Date', how='left').merge(unemp, on='Date', how='left').merge(spread, on='Date', how='left').merge(shiller, on='Date', how='left').merge(consumer_confidence, on='Date', how='left').merge(inflation_exp, on='Date', how='left').merge(composite_confidence, on='Date', how='left').merge(housing, on='Date', how='left').ffill()
+    econ = completedates.merge(Stock, on='Date', how='left').merge(cpius, on='Date', how='left').merge(m2, on='Date', how='left').merge(yieldmin, on='Date', how='left').merge(unemp, on='Date', how='left').merge(spread, on='Date', how='left').merge(shiller, on='Date', how='left').merge(consumer_confidence, on='Date', how='left').merge(inflation_exp, on='Date', how='left').merge(composite_confidence, on='Date', how='left').ffill()
     #.apply(lambda x : x.iloc[0]).head(32)
     econ.reset_index(inplace=True)
 
-    # fig, ax = plt.subplots()
-    # ax.plot(econ[(econ['Date'] > '1980-06-01') & (econ['Date'] < '2022-07-10')]['Date'], 
-    #                  econ[(econ['Date'] > '1980-06-01') & (econ['Date'] < '2022-07-10')]['claims_growth'].rolling(44).mean())#*scoreddf[(scoreddf['Date'] > '1997-06-01') & (scoreddf['Date'] < '2022-06-01')]['CPIOverScore'])
-    #         #['MoM'].rolling(252).mean())
-    # fig.set_size_inches(17, 10)
-    # #ax.axhline(35, color='orange') 
-    # #ax.axhline(20, color='r') 
-    # ax.xaxis.set_major_locator(mdates.YearLocator())
-    # # Get only the month to show in the x-axis:
-    # ax.xaxis.set_major_formatter(mdates.DateFormatter('%y'))
 
-    # =============================================================================
-    #         fig, ax = plt.subplots()
-    #         ax.plot(econ[(econ['Date'] > '1980-06-01') & (econ['Date'] < '2022-07-10')]['Date'], 
-    #                          econ[(econ['Date'] > '1980-06-01') & (econ['Date'] < '2022-07-10')]['RollingComp'].diff().rolling(120).mean())#*scoreddf[(scoreddf['Date'] > '1997-06-01') & (scoreddf['Date'] < '2022-06-01')]['CPIOverScore'])
-    #                 #['MoM'].rolling(252).mean())
-    #         fig.set_size_inches(17, 10)
-    #         #ax.axhline(35, color='orange') 
-    #         #ax.axhline(20, color='r') 
-    #         ax.xaxis.set_major_locator(mdates.YearLocator())
-    #         # Get only the month to show in the x-axis:
-    #         ax.xaxis.set_major_formatter(mdates.DateFormatter('%y'))
-    # =============================================================================
 
     econ['real_yield'] = econ['TenYield'] - (econ['YoY']*100)
     #plt.plot(econ.Date, econ.real_yield)
@@ -769,87 +743,86 @@ def update_dropbox_dataset():
             'YoY', 'm2', 'm2_growth', 'MoMGrowthChange', 'unemp_rate',
             'unemp_growth', 'consumer_conf_yoy', 'MoMConsumerConf',
             'RollingConsConf', 'inflation_exp_yoy', 'MoMInflationExp', 'composite_confidence_growth_yoy',
-            'MoMConfidence', 'housing_yoy', 'MoMRetail',
-            'RollingHousing', 'mom2diff', 'ShillerOver', 'CPIDeviation', 'CPIGoalDev', 'CPIDev', 'CPIOver'])
+            'MoMConfidence', 'mom2diff', 'ShillerOver', 'CPIDeviation', 'CPIGoalDev', 'CPIDev', 'CPIOver'])
     econ.tail(22)
     econ.Date = pd.to_datetime(econ['Date'])
 
     econ.set_index('Date', inplace=True)
-    econW = econ.resample('W-FRI').last()
-    data = econW[['Forward Return' , 'Close', 'SP Trailing 4 Weeks Return', 'MoMGrowthChange', 'unemp_rate', 'T10Y2Y', 'mom2diff', 'maxtight', 'ShillerOver', 'CPIDev', 'CPIOver', 'detrendedyield' , 'Drawdown% 252', 'Drawdown% 132', 'Drawdown% 66', 'Drawdown% 7', 'RollingConsConf', 'RollingExpInfl', 'RollingHousing']].dropna(how='all', axis=0).fillna(0).copy()
-    dataX = data.copy().drop(['Forward Return'],axis=1)
-    dataX.head()
-    testDataX = dataX
-    testDataX.head()
-    testDataY = data['Forward Return'].copy()
-    testDataY.head()
-    from sklearn import preprocessing as pp
+    econW = econ#.resample('W-FRI').last()
+    # data = econW[['Forward Return' , 'Close', 'SP Trailing 4 Weeks Return', 'MoMGrowthChange', 'unemp_rate', 'T10Y2Y', 'mom2diff', 'maxtight', 'ShillerOver', 'CPIDev', 'CPIOver', 'detrendedyield' , 'Drawdown% 252', 'Drawdown% 132', 'Drawdown% 66', 'Drawdown% 7', 'RollingConsConf', 'RollingExpInfl']].dropna(how='all', axis=0).fillna(0).copy()
+    # dataX = data.copy().drop(['Forward Return'],axis=1)
+    # dataX.head()
+    # testDataX = dataX
+    # testDataX.head()
+    # testDataY = data['Forward Return'].copy()
+    # testDataY.head()
+    # from sklearn import preprocessing as pp
 
-    featuresToScale = dataX.columns
+    # featuresToScale = dataX.columns
 
-    sX = pp.StandardScaler(copy=True, with_mean=True, with_std=True)
-    dataX.loc[:,featuresToScale] = sX.fit_transform(dataX[featuresToScale])
-    featuresToScale = testDataX.columns
-    testDataX.loc[:,featuresToScale] = sX.fit_transform(testDataX[featuresToScale])
-    testDataX.head()
+    # sX = pp.StandardScaler(copy=True, with_mean=True, with_std=True)
+    # dataX.loc[:,featuresToScale] = sX.fit_transform(dataX[featuresToScale])
+    # featuresToScale = testDataX.columns
+    # testDataX.loc[:,featuresToScale] = sX.fit_transform(testDataX[featuresToScale])
+    # testDataX.head()
 
-    def anomalyScores(originalDF, reducedDF):
-        loss = np.sum((np.array(originalDF) - \
-                        np.array(reducedDF))**2, axis=1)
-        loss = pd.Series(data=loss,index=originalDF.index)
-        loss = (loss-np.min(loss))/(np.max(loss)-np.min(loss))
+    # def anomalyScores(originalDF, reducedDF):
+    #     loss = np.sum((np.array(originalDF) - \
+    #                     np.array(reducedDF))**2, axis=1)
+    #     loss = pd.Series(data=loss,index=originalDF.index)
+    #     loss = (loss-np.min(loss))/(np.max(loss)-np.min(loss))
         
-        print('Mean for anomaly scores: ', np.mean(loss))
+    #     print('Mean for anomaly scores: ', np.mean(loss))
         
-        return loss
-    import tensorflow as tf
-    from tensorflow import keras
+    #     return loss
+    # import tensorflow as tf
+    # from tensorflow import keras
 
-    from tensorflow.keras import backend as K
-    from tensorflow.keras.models import Sequential, Model
-    from tensorflow.keras.layers import Activation, Dense, Dropout
-    from tensorflow.keras.layers import BatchNormalization, Input, Lambda
-    from tensorflow.keras import regularizers
-    from tensorflow.keras.losses import mse, binary_crossentropy
+    # from tensorflow.keras import backend as K
+    # from tensorflow.keras.models import Sequential, Model
+    # from tensorflow.keras.layers import Activation, Dense, Dropout
+    # from tensorflow.keras.layers import BatchNormalization, Input, Lambda
+    # from tensorflow.keras import regularizers
+    # from tensorflow.keras.losses import mse, binary_crossentropy
 
-    # Call neural network API
-    model = Sequential()
+    # # Call neural network API
+    # model = Sequential()
 
-    # Apply linear activation function to input layer
-    # Generate hidden layer with 14 nodes, the same as the input layer
-    model.add(Dense(units=len(dataX.columns), activation='linear',input_dim=len(dataX.columns)))
-    model.add(Dense(units=14, activation='linear'))
-    model.add(Dense(units=len(dataX.columns), activation='linear'))
-    #model.add(Dropout=0.1)
+    # # Apply linear activation function to input layer
+    # # Generate hidden layer with 14 nodes, the same as the input layer
+    # model.add(Dense(units=len(dataX.columns), activation='linear',input_dim=len(dataX.columns)))
+    # model.add(Dense(units=14, activation='linear'))
+    # model.add(Dense(units=len(dataX.columns), activation='linear'))
+    # #model.add(Dropout=0.1)
 
-    # Apply linear activation function to hidden layer
-    # Generate output layer with 14 nodes
-    model.add(Dense(units=len(dataX.columns), activation='linear'))
-    # Compile the model
-    model.compile(optimizer='adam',
-                    loss='mean_squared_error',
-                    metrics=['accuracy'])
-    # Train the model
-    num_epochs = 10
-    batch_size = 256
+    # # Apply linear activation function to hidden layer
+    # # Generate output layer with 14 nodes
+    # model.add(Dense(units=len(dataX.columns), activation='linear'))
+    # # Compile the model
+    # model.compile(optimizer='adam',
+    #                 loss='mean_squared_error',
+    #                 metrics=['accuracy'])
+    # # Train the model
+    # num_epochs = 10
+    # batch_size = 256
 
-    history = model.fit(x=dataX, y=dataX,
-                        epochs=num_epochs,
-                        batch_size=batch_size,
-                        shuffle=True,
-                        validation_data=(dataX, dataX),
-                        verbose=1)
-    # Evaluate on test set
-    predictions = model.predict(dataX, verbose=1)
-    anomalyScoresAE = anomalyScores(dataX, predictions)
+    # history = model.fit(x=dataX, y=dataX,
+    #                     epochs=num_epochs,
+    #                     batch_size=batch_size,
+    #                     shuffle=True,
+    #                     validation_data=(dataX, dataX),
+    #                     verbose=1)
+    # # Evaluate on test set
+    # predictions = model.predict(dataX, verbose=1)
+    # anomalyScoresAE = anomalyScores(dataX, predictions)
 
 
-    anomaly = anomalyScoresAE.reset_index()
+    # anomaly = anomalyScoresAE.reset_index()
 
-    anomaly.columns=['Date', 'Reconstruction Error']
-    econW = econW.dropna(how='all', axis=0)
-    econW['Anomaly'] = anomaly.set_index('Date')
-    econW
+    # anomaly.columns=['Date', 'Reconstruction Error']
+    # econW = econW.dropna(how='all', axis=0)
+    # econW['Anomaly'] = anomaly.set_index('Date')
+    # econW
 
     econW.rename(columns={'inflation_exp_yoy':'InflationExp', 'consumer_conf_yoy':'ConsumerConfidence'}, inplace=True)
     econW.columns
@@ -859,14 +832,7 @@ def update_dropbox_dataset():
     #econW['Combined Score'] = finalscores['Combined Economy Score']
     finalscores.Date = pd.to_datetime(finalscores.Date)
     econW = econW.reset_index().merge(finalscores[['Date', 'Combined Economy Score']], on='Date')
-    econW.to_csv(r'C:\Users\jonas\OneDrive\Skrivebord\App\econW.csv')
-    econW.to_csv(r'C:\Users\jonas\Dropbox\econW.csv')
-        
-
-
-
-
-    # update_dropbox_dataset()
-    print("Data updated")
+    econW.sort_values('Date', ascending=True)
+    print("Data Updated")
     return econW
     #createecon()
