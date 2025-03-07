@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, date  # Import date
 import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
-from update_script import update_dataset #Commented out due to missing script
+from src.update_script import update_dataset #Commented out due to missing script
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
-from update_script import update_dropbox_dataset
+#from update_script import update_dropbox_dataset
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
