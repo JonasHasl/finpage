@@ -5,10 +5,10 @@ def update_dataset():
     import os
 
     # Get the directory of the current script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    #script_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Change the current working directory to the script's directory
-    os.chdir(script_dir)
+    #os.chdir(script_dir)
 
     # Record the start time
     start_time = time.time()
