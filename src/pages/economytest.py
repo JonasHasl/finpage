@@ -364,7 +364,7 @@ def update_all_graphs(start_date, end_date, range_selector, n_intervals):
 
     # Reload data every 6 hours
     if n_intervals > 0:
-        economy = update_dataset()
+        #economy = update_dataset()
         load_data()
         print(f"Data reloaded at interval: {n_intervals}")
 
