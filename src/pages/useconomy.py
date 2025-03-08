@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
 from update_script import update_dataset #Commented out due to missing script
+from dash import callback_context
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
@@ -219,6 +220,9 @@ cardeconomy = dbc.Container([
         type="default",  # or "circle" or "dot" or "cube"
         children=html.Div(id="update-output", style={'font-size': '11', 'color': 'gray'})
     ),
+    html.Br(),
+    html.Button('Refresh', id='refresh-button', n_clicks=0),
+
     html.Hr(),
 
     # Add DatePickerRange and RadioItems components
@@ -351,17 +355,25 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
      Output('t10y2y-graph', 'figure'),
      Output('unemployment-graph', 'figure'),
      Output('combined-economy-graph', 'figure'),
-     Output('update-output', 'children')],  # Added Output for the update message
+     Output('update-output', 'children')],
     [Input('date-picker-range', 'start_date'),
      Input('date-picker-range', 'end_date'),
      Input('date-range-selector', 'value'),
-     Input('interval-component', 'n_intervals')]  # Added Input from dcc.Interval
+     Input('interval-component', 'n_intervals'),
+     Input('refresh-button', 'n_clicks')],
+    prevent_initial_call=False
 )
-def update_all_graphs(start_date, end_date, range_selector, n_intervals):
+def update_all_graphs(start_date, end_date, range_selector, n_intervals, n_clicks):
+
     """Updates all graphs based on date range and interval."""
 
     global economy, df #Accessing global variables
-
+    ctx = callback_context
+    if ctx.triggered:
+        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if trigger_id == 'refresh-button':
+            load_data()
+            # Handle refresh button click specifically if needed
     # Reload data every 6 hours
     if n_intervals > 0:
         #economy = update_dataset()
