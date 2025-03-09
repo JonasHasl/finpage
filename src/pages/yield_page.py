@@ -58,7 +58,7 @@ def create_yield_table(data, columns, labels, table_id):
                 'width': 'auto'
             }
         )
-    ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'borderRadius': '5px', 'marginBottom': '20px'})
+    ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'})
 
 today = datetime.now().date().strftime('%Y-%m-%d')
 nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod={today}&locale=en"
@@ -97,7 +97,7 @@ norwegian_labels = ['3M', '6M', '1Y', '3Y', '5Y', '7Y', '10Y']
 
 nor_static_table_content = [
     html.Tr([html.Td('Maturity')] + [html.Td(maturity) for maturity in norwegian_labels]),
-    html.Tr([html.Td('Yield (%)')] + [html.Td(f"{nor_last_yields[i]:.2f}") for i in norwegian_labels])
+    html.Tr([html.Td('Yield (%)')] + [html.Td(f"{nor_last_yields[i]:.2f}") for i in range(len(norwegian_labels))])
 ]
 
 nor_static_yield_table = html.Table(
@@ -109,18 +109,27 @@ nor_yield_table_header = html.Div(f"Yields as of {nor_today}", style={'fontWeigh
 
 norwegian_yield_curve_layout = html.Div([
     html.H1("Historical Norwegian Yield Curve", style={'textAlign':'center'}),
-    html.Div([nor_yield_table_header, nor_static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 
-                                                                      'borderRadius': '5px', 'marginBottom': '20px'}),
-    dcc.DatePickerRange(
-        id='nor-date-picker-range',
-        start_date=nor_yield_monthly.index.min().date(),
-        end_date=nor_yield_monthly.index.max().date(),
-        display_format='YYYY-MM-DD',
-        style={'marginBottom': '20px'}
-    ),
-    dcc.Graph(id='nor-yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px'}),
-    create_yield_table(nor_yield_monthly_reset, nor_yield_monthly_reset.columns, ['Date'], 'nor-yield-table')
-], style={'textAlign':'center'})
+    dbc.Card(
+        dbc.CardBody(
+            html.Div([
+                html.Div([nor_yield_table_header, nor_static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
+                                                                                'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
+                dcc.DatePickerRange(
+                    id='nor-date-picker-range',
+                    start_date=nor_yield_monthly.index.min().date(),
+                    end_date=nor_yield_monthly.index.max().date(),
+                    display_format='YYYY-MM-DD',
+                    style={'marginBottom': '20px'}
+                ),
+                dcc.Graph(id='nor-yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
+                html.Br(),
+                dcc.Graph(id='latest-yield-curve-nor', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                create_yield_table(nor_yield_monthly_reset, nor_yield_monthly_reset.columns, ['Date'], 'nor-yield-table')
+            ], style={'textAlign': 'center'})
+        ),
+        className="shadow my-2"  # Adds a shadow effect to the card
+    )
+])
 
 FRED_API_KEY = '6188d31bebbdca093493a1077d095284'
 fred = Fred(FRED_API_KEY)
@@ -167,20 +176,29 @@ static_yield_table = html.Table(
 yield_table_header = html.Div(f"Yields as of {today.date()}", style={'fontWeight': 'bold', 'marginBottom': '10px', 'textAlign':'center'})
 
 tab1_content = html.Div([
-    html.H1("Historical US Yield Curve"),
-    html.Div([yield_table_header, static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
-                                                               'borderRadius': '5px', 'marginBottom': '20px'}),
-    dcc.DatePickerRange(
-        id='date-picker-range',
-        start_date=yield_df_quarterly.index.min().date(),
-        end_date=datetime.today().date(),
-        display_format='YYYY-MM-DD',
-        style={'marginBottom': '20px'}
-    ),
-    dcc.Graph(id='yield-curve-3df', config={'scrollZoom': True}, style={'height': '1000px'}),
-    html.Br(),
-    create_yield_table(table_yields, table_yields.columns, ['Date'], 'us-yield-table')
-], style={'textAlign':'center'})
+    html.H1("Historical US Yield Curve", style={'textAlign':'center'}),
+    dbc.Card(
+        dbc.CardBody(
+            html.Div([
+                html.Div([yield_table_header, static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
+                                                                       'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
+                dcc.DatePickerRange(
+                    id='date-picker-range',
+                    start_date=yield_df_quarterly.index.min().date(),
+                    end_date=datetime.today().date(),
+                    display_format='YYYY-MM-DD',
+                    style={'marginBottom': '20px'}
+                ),
+                dcc.Graph(id='yield-curve-3df', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
+                html.Br(),
+                dcc.Graph(id='latest-yield-curve-us', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                html.Br(),
+                create_yield_table(table_yields, table_yields.columns, ['Date'], 'us-yield-table')
+            ], style={'textAlign': 'center'})
+        ),
+        className="shadow my-2"  # Adds a shadow effect to the card
+    )
+])
 
 tab2_content = norwegian_yield_curve_layout
 
@@ -341,3 +359,80 @@ def update_graph(start_date, end_date):
     fig.update_layout(showlegend=False)
     
     return fig
+
+@callback(
+    Output('latest-yield-curve-us', 'figure'),
+    [Input('date-picker-range', 'start_date'),
+     Input('date-picker-range', 'end_date')]
+)
+def update_latest_yield_curve_us(start_date, end_date):
+    # Always show the latest yield curve
+    latest_yield_curve = yield_df_quarterly.iloc[-1]
+    
+    fig = go.Figure(data=[go.Scatter(
+        x=maturity_labels,
+        y=latest_yield_curve,
+        mode='lines+markers',
+        line=dict(color='#007bff'),  # Blue line
+        marker=dict(size=10, color='#007bff')  # Blue markers
+    )])
+    
+    fig.update_layout(
+        title='Latest US Yield Curve',
+        title_x=0.5,  # Center title
+        xaxis_title='Maturity',
+        yaxis_title='Yield (%)',
+        font=dict(family='Arial', size=14),  # Font style
+        margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
+        paper_bgcolor='white',  # Background color
+        plot_bgcolor='white',  # Plot background color
+        xaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        ),
+        yaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        )
+    )
+    
+    return fig
+
+@callback(
+    Output('latest-yield-curve-nor', 'figure'),
+    [Input('nor-date-picker-range', 'start_date'),
+     Input('nor-date-picker-range', 'end_date')]
+)
+def update_latest_yield_curve_nor(start_date, end_date):
+    # Always show the latest yield curve
+    latest_yield_curve = nor_yield_monthly.iloc[-1]
+    
+    fig = go.Figure(data=[go.Scatter(
+        x=norwegian_labels,
+        y=latest_yield_curve,
+        mode='lines+markers',
+        line=dict(color='#007bff'),  # Blue line
+        marker=dict(size=10, color='#007bff')  # Blue markers
+    )])
+    
+    fig.update_layout(
+        title='Latest Norwegian Yield Curve',
+        title_x=0.5,  # Center title
+        xaxis_title='Maturity',
+        yaxis_title='Yield (%)',
+        font=dict(family='Arial', size=14),  # Font style
+        margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
+        paper_bgcolor='white',  # Background color
+        plot_bgcolor='white',  # Plot background color
+        xaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        ),
+        yaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        )
+    )
+    
+    return fig
+
