@@ -49,18 +49,33 @@ def create_yield_table(data, columns, labels, table_id):
                 'color': 'black',
                 'whiteSpace': 'normal',
                 'border': '2px solid black',
+                'borderRadius': '0px',
                 'font-family': 'Arial',
                 'font-size': '20px'
             },
             style_table={
                 'height': 'auto',
+                'border-radius':'0px',
                 'overflowX': 'auto',
                 'width': 'auto'
             }
         )
-    ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'})
+    ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'borderRadius': '10px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'})
 
 today = datetime.now().date().strftime('%Y-%m-%d')
+
+nor_url_cur = f"https://data.norges-bank.no/api/data/EXR/B.USD+EUR+SEK+DKK.NOK.SP?format=csv&startPeriod=2000-03-23&endPeriod={today}&locale=en"
+nor_url_cur_response = requests.get(nor_url_cur)
+
+if nor_url_cur_response.status_code == 200:
+    nor_csv_data = nor_url_cur_response.content.decode('utf-8')
+    nor_cur_data = pd.read_csv(io.StringIO(nor_csv_data), sep=';')[['BASE_CUR', 'QUOTE_CUR', 'TIME_PERIOD', 'OBS_VALUE']]
+
+nor_cur_data['Currency'] = nor_cur_data['BASE_CUR'] + "/" + nor_cur_data['QUOTE_CUR']
+nor_cur_data.drop(['BASE_CUR', 'QUOTE_CUR'], axis=1, inplace=True)
+nor_cur_data['TIME_PERIOD'] = pd.to_datetime(nor_cur_data['TIME_PERIOD'])
+
+
 nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod={today}&locale=en"
 
 nor_response = requests.get(nor_url)
@@ -114,22 +129,31 @@ norwegian_yield_curve_layout = html.Div([
             html.Div([
                 html.Div([nor_yield_table_header, nor_static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
                                                                                 'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
-                dcc.DatePickerRange(
-                    id='nor-date-picker-range',
-                    start_date=nor_yield_monthly.index.min().date(),
-                    end_date=nor_yield_monthly.index.max().date(),
-                    display_format='YYYY-MM-DD',
+                dcc.RadioItems(
+                    id='nor-date-range',
+                    options=[
+                        {'label': 'Full Range', 'value': 'full'},
+                        {'label': 'Year to Date', 'value': 'ytd'}
+                    ],
+                    value='full',
                     style={'marginBottom': '20px'}
                 ),
                 dcc.Graph(id='nor-yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
                 html.Br(),
                 dcc.Graph(id='latest-yield-curve-nor', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                html.Br(),
+                dcc.Graph(id='nor-yield-curve-2d', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                html.Br(),
+                dcc.Graph(id='nor-usd-eur-graph', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                html.Br(),
+                dcc.Graph(id='nor-sek-dkk-graph', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
                 create_yield_table(nor_yield_monthly_reset, nor_yield_monthly_reset.columns, ['Date'], 'nor-yield-table')
             ], style={'textAlign': 'center'})
         ),
         className="shadow my-2"  # Adds a shadow effect to the card
     )
 ])
+
 
 FRED_API_KEY = '6188d31bebbdca093493a1077d095284'
 fred = Fred(FRED_API_KEY)
@@ -182,11 +206,13 @@ tab1_content = html.Div([
             html.Div([
                 html.Div([yield_table_header, static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
                                                                        'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
-                dcc.DatePickerRange(
-                    id='date-picker-range',
-                    start_date=yield_df_quarterly.index.min().date(),
-                    end_date=datetime.today().date(),
-                    display_format='YYYY-MM-DD',
+                dcc.RadioItems(
+                    id='us-date-range',
+                    options=[
+                        {'label': 'Full Range', 'value': 'full'},
+                        {'label': 'Year to Date', 'value': 'ytd'}
+                    ],
+                    value='full',
                     style={'marginBottom': '20px'}
                 ),
                 dcc.Graph(id='yield-curve-3df', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
@@ -222,21 +248,217 @@ def render_content(tab):
         return tab1_content
     elif tab == 'tab-2':
         return norwegian_yield_curve_layout
+    
+
+
+@callback(
+    Output('latest-yield-curve-nor', 'figure'),
+    [Input('nor-date-range', 'value')]
+)
+def update_latest_yield_curve_nor(date_range):
+    if date_range == 'full':
+        latest_yield_curve = nor_yield_monthly.iloc[-1]
+    elif date_range == 'ytd':
+        start_date = pd.Timestamp(datetime.today().date().replace(month=1, day=1))
+        end_date = pd.Timestamp(datetime.today().date())
+        mask = (nor_yield_df.index >= start_date) & (nor_yield_df.index <= end_date)
+        filtered_data = nor_yield_df.loc[mask]
+        
+        if filtered_data.empty:
+            latest_yield_curve = nor_yield_df.iloc[-1]  # Default to latest if no YTD data
+        else:
+            latest_yield_curve = filtered_data.iloc[-1]
+    
+    fig = go.Figure(data=[go.Scatter(
+        x=norwegian_labels,
+        y=latest_yield_curve,
+        mode='lines+markers',
+        line=dict(color='#007bff'),  # Blue line
+        marker=dict(size=10, color='#007bff')  # Blue markers
+    )])
+    
+    fig.update_layout(
+        title='Latest Norwegian Yield Curve',
+        title_x=0.5,  # Center title
+        xaxis_title='Maturity',
+        yaxis_title='Yield (%)',
+        font=dict(family='Arial', size=14),  # Font style
+        margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
+        paper_bgcolor='white',  # Background color
+        plot_bgcolor='white',  # Plot background color
+        xaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        ),
+        yaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        )
+    )
+    
+    return fig
+
+
+
+@callback(
+    Output('yield-curve-3df', 'figure'),
+    [Input('us-date-range', 'value')]
+)
+def update_graph(date_range):
+    if date_range == 'full':
+        start_date = yield_df_quarterly.index.min()
+        end_date = yield_df_quarterly.index.max()
+        filtered_data = yield_df_quarterly.loc[(yield_df_quarterly.index >= start_date) & (yield_df_quarterly.index <= end_date)]
+    elif date_range == 'ytd':
+        start_date = pd.Timestamp(datetime.today().date().replace(month=1, day=1))
+        end_date = pd.Timestamp(datetime.today().date())
+        filtered_data = yield_df.loc[(yield_df.index >= start_date) & (yield_df.index <= end_date)]
+
+    if filtered_data.empty:
+        # Handle the case where there is no data for the selected range
+        fig = go.Figure(data=[go.Surface(
+            z=np.zeros((1, len(maturity_labels))),
+            x=[start_date],
+            y=np.arange(len(maturity_labels)),
+            colorscale='GnBu',
+            colorbar_title='Yield (%)'
+        )])
+        
+        fig.update_layout(
+            title=f"No Yield Curve Data Available from {start_date.date()} to {end_date.date()}",
+            scene=dict(
+                xaxis_title=' ',
+                yaxis_title='Maturity',
+                zaxis_title='Yield (%)',
+                xaxis=dict(
+                    backgroundcolor='white'
+                ),
+                yaxis=dict(
+                    tickvals=np.arange(len(maturity_labels)),
+                    ticktext=maturity_labels,
+                    backgroundcolor='white'
+                ),
+                zaxis=dict(backgroundcolor='white')
+            ),
+            scene_camera=dict(eye=dict(x=1.25, y=1.25, z=1.25)),
+        )
+        fig.update_layout(showlegend=False)
+    else:
+        fig = go.Figure(data=[go.Surface(
+            z=filtered_data.T.values,
+            x=filtered_data.index,
+            y=np.arange(len(maturity_labels)), 
+            colorscale='GnBu',
+            colorbar_title='Yield (%)'
+        )])
+
+        num_years = (end_date - start_date).days / 365.25
+        
+        if date_range == 'ytd':
+            tick_freq = 'W'  # Weekly ticks for YTD
+        elif num_years <= 1:
+            tick_freq = '3M'
+        elif 1 < num_years <= 5:
+            tick_freq = '6M'
+        elif 5 < num_years <= 20:
+            tick_freq = '1Y'
+        else:
+            tick_freq = '5Y'
+        
+        x_ticks = pd.date_range(start=start_date, end=end_date, freq=tick_freq).to_list()
+        
+        if pd.Timestamp(datetime.today().date()) not in x_ticks:
+            x_ticks.append(pd.Timestamp(datetime.today().date()))
+
+        x_ticks = sorted(x_ticks)  # Sort to maintain order
+
+        # Update layout for the 3D plot
+        fig.update_layout(
+            title=f"Yield Curve (1-month to 30-year) from {start_date.date()} to {end_date.date()}",
+           
+            scene=dict(
+                xaxis=dict(
+                    tickmode='array',
+                    tickvals=x_ticks,
+                    ticktext=[d.strftime('%Y-%m-%d') for d in x_ticks],
+                    backgroundcolor='white'
+                ), 
+                xaxis_title=' ',
+                yaxis_title='Maturity',
+                zaxis_title='Yield (%)',
+                yaxis=dict(
+                    tickvals=np.arange(len(maturity_labels)), 
+                    ticktext=maturity_labels,
+                    backgroundcolor='white'
+                ),
+                zaxis=dict(backgroundcolor='white')
+            ),
+            scene_camera=dict(eye=dict(x=1.25, y=1.25, z=1.25)),
+        )
+        fig.update_layout(showlegend=False)
+    
+    return fig
+
+
+@callback(
+    Output('latest-yield-curve-us', 'figure'),
+    [Input('us-date-range', 'value')]
+)
+def update_latest_yield_curve_us(date_range):
+    # Always show the latest yield curve
+    latest_yield_curve = yield_df.iloc[-1]
+    
+    fig = go.Figure(data=[go.Scatter(
+        x=maturity_labels,
+        y=latest_yield_curve,
+        mode='lines+markers',
+        line=dict(color='#007bff'),  # Blue line
+        marker=dict(size=10, color='#007bff')  # Blue markers
+    )])
+    
+    fig.update_layout(
+        title='Latest US Yield Curve',
+        title_x=0.5,  # Center title
+        xaxis_title='Maturity',
+        yaxis_title='Yield (%)',
+        font=dict(family='Arial', size=14),  # Font style
+        margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
+        paper_bgcolor='white',  # Background color
+        plot_bgcolor='white',  # Plot background color
+        xaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        ),
+        yaxis=dict(
+            gridcolor='lightgray',  # Grid color
+            zerolinecolor='lightgray'  # Zero line color
+        )
+    )
+    
+    return fig
+
+
+
 
 @callback(
     Output('nor-yield-curve-3d', 'figure'),
-    [Input('nor-date-picker-range', 'start_date'),
-     Input('nor-date-picker-range', 'end_date')]
+    [Input('nor-date-range', 'value')]
 )
-def update_norwegian_graph(start_date, end_date):
-    mask = (nor_yield_monthly.index >= start_date) & (nor_yield_monthly.index <= end_date)
-    filtered_data = nor_yield_monthly.loc[mask]
+def update_norwegian_graph(date_range):
+    if date_range == 'full':
+        start_date = nor_yield_monthly.index.min()
+        end_date = nor_yield_monthly.index.max()
+        filtered_data = nor_yield_monthly.loc[(nor_yield_monthly.index >= start_date) & (nor_yield_monthly.index <= end_date)]
+    elif date_range == 'ytd':
+        start_date = pd.Timestamp(datetime.today().date().replace(month=1, day=1))
+        end_date = pd.Timestamp(datetime.today().date())
+        filtered_data = nor_yield_df.loc[(nor_yield_df.index >= start_date) & (nor_yield_df.index <= end_date)]
 
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
     num_years = (end_date - start_date).days / 365.25
     
-    if num_years <= 1:
+    if date_range == 'ytd':
+        tick_freq = 'W'  # Weekly ticks for YTD
+    elif num_years <= 1:
         tick_freq = '3M'
     elif 1 < num_years <= 5:
         tick_freq = '6M'
@@ -296,141 +518,295 @@ def update_norwegian_graph(start_date, end_date):
     return fig
 
 @callback(
-    Output('yield-curve-3df', 'figure'),
-    [Input('date-picker-range', 'start_date'),
-     Input('date-picker-range', 'end_date')]
+    Output('nor-yield-curve-2d', 'figure'),
+    [Input('nor-date-range', 'value')]
 )
-def update_graph(start_date, end_date):
-    mask = (yield_df_quarterly.index >= start_date) & (yield_df_quarterly.index <= end_date)
-    filtered_data = yield_df_quarterly.loc[mask]
+def update_norwegian_yield_curve_2d(date_range):
+    if date_range == 'full':
+        start_date = nor_yield_monthly.index.min()
+        end_date = nor_yield_monthly.index.max()
+        filtered_data = nor_yield_monthly.loc[(nor_yield_monthly.index >= start_date) & (nor_yield_monthly.index <= end_date)]
+    elif date_range == 'ytd':
+        start_date = pd.Timestamp(datetime.today().date().replace(month=1, day=1))
+        end_date = pd.Timestamp(datetime.today().date())
+        filtered_data = nor_yield_df.loc[(nor_yield_df.index >= start_date) & (nor_yield_df.index <= end_date)]
 
-    fig = go.Figure(data=[go.Surface(
-        z=filtered_data.T.values,
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
         x=filtered_data.index,
-        y=np.arange(len(maturity_labels)), 
-        colorscale='GnBu',
-        colorbar_title='Yield (%)'
-    )])
-
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
-    num_years = (end_date - start_date).days / 365.25
+        y=filtered_data['3M'],
+        mode='lines',
+        name='3M',
+        line=dict(color='blue')
+    ))
     
-    if num_years <= 1:
-        tick_freq = '3M'
-    elif 1 < num_years <= 5:
-        tick_freq = '6M'
-    elif 5 < num_years <= 20:
-        tick_freq = '1Y'
-    else:
-        tick_freq = '5Y'
+    fig.add_trace(go.Scatter(
+        x=filtered_data.index,
+        y=filtered_data['3Y'],
+        mode='lines',
+        name='3Y',
+        line=dict(color='green')
+    ))
     
-    x_ticks = pd.date_range(start=start_date, end=end_date, freq=tick_freq).to_list()
+    fig.add_trace(go.Scatter(
+        x=filtered_data.index,
+        y=filtered_data['10Y'],
+        mode='lines',
+        name='10Y',
+        line=dict(color='orange')
+    ))
     
-    if today not in x_ticks:
-        x_ticks.append(today)
-
-    x_ticks = sorted(x_ticks)  # Sort to maintain order
-    x_tick_values = mdates.date2num(x_ticks)  # Convert to numerical format
-
-    # Update layout for the 3D plot
-    fig.update_layout(
-        title=f"Yield Curve (1-month to 30-year) from {start_date.date()} to {end_date.date()}",
-       
-        scene=dict(
-            xaxis=dict(
-                tickmode='array',
-                tickvals=x_ticks,
-                ticktext=[d.strftime('%Y-%m-%d') for d in x_ticks],
-                backgroundcolor='white'
-            ), 
-            xaxis_title=' ',
-            yaxis_title='Maturity',
-            zaxis_title='Yield (%)',
-            yaxis=dict(
-                tickvals=np.arange(len(maturity_labels)), 
-                ticktext=maturity_labels,
-                backgroundcolor='white'
-            ),
-            zaxis=dict(backgroundcolor='white')
-        ),
-        scene_camera=dict(eye=dict(x=1.25, y=1.25, z=1.25)),
+    # Add final observation markers
+    fig.add_trace(go.Scatter(
+        x=[filtered_data.index[-1]],
+        y=[filtered_data['3M'].iloc[-1]],  # Use .iloc here for integer indexing
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=[filtered_data.index[-1]],
+        y=[filtered_data['3Y'].iloc[-1]],  # Use .iloc here for integer indexing
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=[filtered_data.index[-1]],
+        y=[filtered_data['10Y'].iloc[-1]],  # Use .iloc here for integer indexing
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    # Add annotations for final observations
+    fig.add_annotation(
+        x=filtered_data.index[-1],
+        y=filtered_data['3M'].iloc[-1],
+        text=f"3M: {filtered_data['3M'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
     )
-    fig.update_layout(showlegend=False)
     
-    return fig
-
-@callback(
-    Output('latest-yield-curve-us', 'figure'),
-    [Input('date-picker-range', 'start_date'),
-     Input('date-picker-range', 'end_date')]
-)
-def update_latest_yield_curve_us(start_date, end_date):
-    # Always show the latest yield curve
-    latest_yield_curve = yield_df_quarterly.iloc[-1]
+    fig.add_annotation(
+        x=filtered_data.index[-1],
+        y=filtered_data['3Y'].iloc[-1],
+        text=f"3Y: {filtered_data['3Y'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
+    )
     
-    fig = go.Figure(data=[go.Scatter(
-        x=maturity_labels,
-        y=latest_yield_curve,
-        mode='lines+markers',
-        line=dict(color='#007bff'),  # Blue line
-        marker=dict(size=10, color='#007bff')  # Blue markers
-    )])
+    fig.add_annotation(
+        x=filtered_data.index[-1],
+        y=filtered_data['10Y'].iloc[-1],
+        text=f"10Y: {filtered_data['10Y'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
+    )
     
     fig.update_layout(
-        title='Latest US Yield Curve',
-        title_x=0.5,  # Center title
-        xaxis_title='Maturity',
+        title='Norwegian Government Yields (3M, 3Y, 10Y)',
+        xaxis_title='Date',
         yaxis_title='Yield (%)',
-        font=dict(family='Arial', size=14),  # Font style
-        margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
-        paper_bgcolor='white',  # Background color
-        plot_bgcolor='white',  # Plot background color
+        font=dict(family='Arial', size=14),
+        margin=dict(l=50, r=50, t=100, b=50),
+        paper_bgcolor='white',
+        plot_bgcolor='white',
         xaxis=dict(
-            gridcolor='lightgray',  # Grid color
-            zerolinecolor='lightgray'  # Zero line color
+            gridcolor='lightgray',
+            zerolinecolor='lightgray'
         ),
         yaxis=dict(
-            gridcolor='lightgray',  # Grid color
-            zerolinecolor='lightgray'  # Zero line color
+            gridcolor='lightgray',
+            zerolinecolor='lightgray'
         )
     )
     
     return fig
 
+
+
 @callback(
-    Output('latest-yield-curve-nor', 'figure'),
-    [Input('nor-date-picker-range', 'start_date'),
-     Input('nor-date-picker-range', 'end_date')]
+    Output('nor-usd-eur-graph', 'figure'),
+    [Input('nor-date-range', 'value')]
 )
-def update_latest_yield_curve_nor(start_date, end_date):
-    # Always show the latest yield curve
-    latest_yield_curve = nor_yield_monthly.iloc[-1]
+def update_nor_usd_eur_graph(date_range):
+    if date_range == 'full':
+        start_date = nor_cur_data['TIME_PERIOD'].min()
+        end_date = nor_cur_data['TIME_PERIOD'].max()
+    elif date_range == 'ytd':
+        start_date = pd.Timestamp(datetime.today().date().replace(month=1, day=1))
+        end_date = pd.Timestamp(datetime.today().date())
     
-    fig = go.Figure(data=[go.Scatter(
-        x=norwegian_labels,
-        y=latest_yield_curve,
-        mode='lines+markers',
-        line=dict(color='#007bff'),  # Blue line
-        marker=dict(size=10, color='#007bff')  # Blue markers
-    )])
+    mask = (nor_cur_data['TIME_PERIOD'] >= start_date) & (nor_cur_data['TIME_PERIOD'] <= end_date)
+    filtered_data = nor_cur_data.loc[mask]
+
+    # Filter for USD/NOK and EUR/NOK
+    usd_data = filtered_data[filtered_data['Currency'] == 'USD/NOK']
+    eur_data = filtered_data[filtered_data['Currency'] == 'EUR/NOK']
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=usd_data['TIME_PERIOD'],
+        y=usd_data['OBS_VALUE'],
+        mode='lines',
+        name='USD/NOK',
+        line=dict(color='blue')
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=eur_data['TIME_PERIOD'],
+        y=eur_data['OBS_VALUE'],
+        mode='lines',
+        name='EUR/NOK',
+        line=dict(color='green')
+    ))
+    
+    # Add final observation markers
+    fig.add_trace(go.Scatter(
+        x=[usd_data['TIME_PERIOD'].iloc[-1]],
+        y=[usd_data['OBS_VALUE'].iloc[-1]],
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=[eur_data['TIME_PERIOD'].iloc[-1]],
+        y=[eur_data['OBS_VALUE'].iloc[-1]],
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    # Add annotations for final observations
+    fig.add_annotation(
+        x=usd_data['TIME_PERIOD'].iloc[-1],
+        y=usd_data['OBS_VALUE'].iloc[-1],
+        text=f"USD/NOK: {usd_data['OBS_VALUE'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
+    )
+    
+    fig.add_annotation(
+        x=eur_data['TIME_PERIOD'].iloc[-1],
+        y=eur_data['OBS_VALUE'].iloc[-1],
+        text=f"EUR/NOK: {eur_data['OBS_VALUE'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
+    )
     
     fig.update_layout(
-        title='Latest Norwegian Yield Curve',
-        title_x=0.5,  # Center title
-        xaxis_title='Maturity',
-        yaxis_title='Yield (%)',
-        font=dict(family='Arial', size=14),  # Font style
-        margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
-        paper_bgcolor='white',  # Background color
-        plot_bgcolor='white',  # Plot background color
+        title='USD/NOK and EUR/NOK Exchange Rates',
+        xaxis_title='Date',
+        yaxis_title='Exchange Rate',
+        font=dict(family='Arial', size=14),
+        margin=dict(l=50, r=50, t=100, b=50),
+        paper_bgcolor='white',
+        plot_bgcolor='white',
         xaxis=dict(
-            gridcolor='lightgray',  # Grid color
-            zerolinecolor='lightgray'  # Zero line color
+            gridcolor='lightgray',
+            zerolinecolor='lightgray'
         ),
         yaxis=dict(
-            gridcolor='lightgray',  # Grid color
-            zerolinecolor='lightgray'  # Zero line color
+            gridcolor='lightgray',
+            zerolinecolor='lightgray'
+        )
+    )
+    
+    return fig
+
+
+@callback(
+    Output('nor-sek-dkk-graph', 'figure'),
+    [Input('nor-date-range', 'value')]
+)
+def update_nor_sek_dkk_graph(date_range):
+    if date_range == 'full':
+        start_date = nor_cur_data['TIME_PERIOD'].min()
+        end_date = nor_cur_data['TIME_PERIOD'].max()
+    elif date_range == 'ytd':
+        start_date = pd.Timestamp(datetime.today().date().replace(month=1, day=1))
+        end_date = pd.Timestamp(datetime.today().date())
+    
+    mask = (nor_cur_data['TIME_PERIOD'] >= start_date) & (nor_cur_data['TIME_PERIOD'] <= end_date)
+    filtered_data = nor_cur_data.loc[mask]
+
+    # Filter for SEK/NOK and DKK/NOK
+    sek_data = filtered_data[filtered_data['Currency'] == 'SEK/NOK']
+    dkk_data = filtered_data[filtered_data['Currency'] == 'DKK/NOK']
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=sek_data['TIME_PERIOD'],
+        y=sek_data['OBS_VALUE'],
+        mode='lines',
+        name='SEK/NOK',
+        line=dict(color='blue')
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=dkk_data['TIME_PERIOD'],
+        y=dkk_data['OBS_VALUE'],
+        mode='lines',
+        name='DKK/NOK',
+        line=dict(color='green')
+    ))
+    
+    # Add final observation markers
+    fig.add_trace(go.Scatter(
+        x=[sek_data['TIME_PERIOD'].iloc[-1]],
+        y=[sek_data['OBS_VALUE'].iloc[-1]],
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=[dkk_data['TIME_PERIOD'].iloc[-1]],
+        y=[dkk_data['OBS_VALUE'].iloc[-1]],
+        mode='markers',
+        marker=dict(color='red', size=10),
+        showlegend=False
+    ))
+    
+    # Add annotations for final observations
+    fig.add_annotation(
+        x=sek_data['TIME_PERIOD'].iloc[-1],
+        y=sek_data['OBS_VALUE'].iloc[-1],
+        text=f"SEK/NOK: {sek_data['OBS_VALUE'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
+    )
+    
+    fig.add_annotation(
+        x=dkk_data['TIME_PERIOD'].iloc[-1],
+        y=dkk_data['OBS_VALUE'].iloc[-1],
+        text=f"DKK/NOK: {dkk_data['OBS_VALUE'].iloc[-1]:.2f}",
+        showarrow=False,
+        yshift=10
+    )
+    
+    fig.update_layout(
+        title='SEK/NOK and DKK/NOK Exchange Rates',
+        xaxis_title='Date',
+        yaxis_title='Exchange Rate',
+        font=dict(family='Arial', size=14),
+        margin=dict(l=50, r=50, t=100, b=50),
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        xaxis=dict(
+            gridcolor='lightgray',
+            zerolinecolor='lightgray'
+        ),
+        yaxis=dict(
+            gridcolor='lightgray',
+            zerolinecolor='lightgray'
         )
     )
     

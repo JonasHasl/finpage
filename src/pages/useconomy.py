@@ -46,7 +46,7 @@ df = pd.DataFrame()
 
 def load_data():
     """Loads the data from the Google Drive and FRED API."""
-    global economy, df
+    global economy, df, latestdate, firstdate
 
     file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
     download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
@@ -77,13 +77,14 @@ def load_data():
 
     df['Interest to Income Ratio'] = ((df['Interest Payments']) / df['Total Revenue'])
     df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'], 2)
-
+    latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
+    firstdate = str(pd.to_datetime(economy['Date']).dt.date.head(1).values[0])
     print("Data Loaded Successfully") #Added print to confirm if data loaded.
 
 # Load the data initially
 load_data()
 
-latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
+
 
 def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False,
                  hline0=False,
@@ -227,14 +228,14 @@ cardeconomy = dbc.Container([
 
     # Add DatePickerRange and RadioItems components
     html.Div([
-        dcc.DatePickerRange(
-            id='date-picker-range',
-            start_date=date(2010, 1, 1),  # Default start date
-            end_date=latestdate,
-            display_format='YYYY-MM-DD'
-        ),
-        html.Br(),
-        html.Br(),
+        # dcc.DatePickerRange(
+        #     id='date-picker-range',
+        #     start_date=date(2010, 1, 1),  # Default start date
+        #     end_date=latestdate,
+        #     display_format='YYYY-MM-DD'
+        # ),
+        # html.Br(),
+        # html.Br(),
         dcc.RadioItems(
             id='date-range-selector',
             options=[
@@ -356,18 +357,18 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
      Output('unemployment-graph', 'figure'),
      Output('combined-economy-graph', 'figure'),
      Output('update-output', 'children')],
-    [Input('date-picker-range', 'start_date'),
-     Input('date-picker-range', 'end_date'),
+    [#Input('date-picker-range', 'start_date'),
+     #Input('date-picker-range', 'end_date'),
      Input('date-range-selector', 'value'),
      Input('interval-component', 'n_intervals'),
      Input('refresh-button', 'n_clicks')],
     prevent_initial_call=False
 )
-def update_all_graphs(start_date, end_date, range_selector, n_intervals, n_clicks):
+def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     """Updates all graphs based on date range and interval."""
 
-    global economy, df #Accessing global variables
+    global economy, df, firstdate, latestdate, description #Accessing global variables
     ctx = callback_context
     if ctx.triggered:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -382,10 +383,13 @@ def update_all_graphs(start_date, end_date, range_selector, n_intervals, n_click
 
     if range_selector == 'ytd':
         start_date = date(datetime.now().year, 1, 1)  # Set start_date to Jan 1 of current year
+        start_date_infl = date(datetime.now().year, 1, 1) 
         end_date = date.today()  # Set end_date to today
     else:
-        start_date = start_date
-        end_date = end_date
+        start_date = firstdate
+        start_date_infl = date(1990, 1, 1)
+        end_date = latestdate
+    
 
     # Update each graph with the selected date range
     ten_year_yield = create_graph(colors['accent'], 'Yield', '10-yr Treasury Yield %', economy, 'TenYield', tick='%',
@@ -398,7 +402,7 @@ def update_all_graphs(start_date, end_date, range_selector, n_intervals, n_click
                           ends=end_date)
     inflation = create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'YoY',
                               tick='%',
-                              starts=start_date, ends=end_date, YoY=True)
+                              starts=start_date_infl, ends=end_date, YoY=True)
     interest_to_income = create_graph(colors['accent'], 'Interest to Income Ratio',
                                       'Federal Interest Payments to Revenues Ratio', df,
                                       'Interest to Income Ratio', tick='%', starts=start_date,
