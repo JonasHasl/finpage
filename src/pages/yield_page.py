@@ -62,182 +62,200 @@ def create_yield_table(data, columns, labels, table_id):
         )
     ], style={'padding': '10px', 'backgroundColor': '#f9f9f9', 'borderRadius': '10px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'})
 
-today = datetime.now().date().strftime('%Y-%m-%d')
-
-nor_url_cur = f"https://data.norges-bank.no/api/data/EXR/B.USD+EUR+SEK+DKK.NOK.SP?format=csv&startPeriod=2000-03-23&endPeriod={today}&locale=en"
-nor_url_cur_response = requests.get(nor_url_cur)
-
-if nor_url_cur_response.status_code == 200:
-    nor_csv_data = nor_url_cur_response.content.decode('utf-8')
-    nor_cur_data = pd.read_csv(io.StringIO(nor_csv_data), sep=';')[['BASE_CUR', 'QUOTE_CUR', 'TIME_PERIOD', 'OBS_VALUE']]
-
-nor_cur_data['Currency'] = nor_cur_data['BASE_CUR'] + "/" + nor_cur_data['QUOTE_CUR']
-nor_cur_data.drop(['BASE_CUR', 'QUOTE_CUR'], axis=1, inplace=True)
-nor_cur_data['TIME_PERIOD'] = pd.to_datetime(nor_cur_data['TIME_PERIOD'])
-
-
-nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod={today}&locale=en"
-
-nor_response = requests.get(nor_url)
-
-if nor_response.status_code == 200:
-    nor_csv_data = nor_response.content.decode('utf-8')
-    nor_data = pd.read_csv(io.StringIO(nor_csv_data), sep=';')
-    nor_data = nor_data[['Tenor', 'TIME_PERIOD', 'OBS_VALUE']].rename(columns={'TIME_PERIOD': 'Date', 'OBS_VALUE': 'Yield'})
-
-nor_yield_df = nor_data.pivot(index='Date', columns='Tenor', values='Yield').reset_index()
-nor_yield_df = nor_yield_df[['Date', '3 months', '6 months', '12 months', '3 years', '5 years', '7 years', '10 years']]
-nor_yield_df.rename(columns={
-    '3 months': '3M', '6 months': '6M', '12 months': '1Y', '3 years': '3Y',
-    '5 years': '5Y', '7 years': '7Y', '10 years': '10Y'
-}, inplace=True)
-
-nor_yield_df['Date'] = pd.to_datetime(nor_yield_df['Date'])
-nor_yield_df.set_index('Date', inplace=True)
-nor_yield_df.dropna(how='all', inplace=True)
-nor_yield_df.fillna(method='ffill', inplace=True)
-
-nor_yield_monthly = nor_yield_df.resample('ME').last()
-
-nor_today = datetime.today().date()
-nor_yield_monthly.sort_index(inplace=True)
-
-nor_yield_monthly_reset = nor_yield_monthly.reset_index()
-nor_yield_monthly_reset.sort_values('Date', ascending=False, inplace=True)
-nor_yield_monthly_reset['Date'] = nor_yield_monthly_reset['Date'].dt.strftime('%d-%m-%Y')
-nor_yield_monthly_reset.iloc[0,0] = nor_today.strftime('%d-%m-%Y')
-
-nor_last_yields = nor_yield_monthly.iloc[-1]
-norwegian_labels = ['3M', '6M', '1Y', '3Y', '5Y', '7Y', '10Y']
-
-nor_static_table_content = [
-    html.Tr([html.Td('Maturity')] + [html.Td(maturity) for maturity in norwegian_labels]),
-    html.Tr([html.Td('Yield (%)')] + [html.Td(f"{nor_last_yields[i]:.2f}") for i in range(len(norwegian_labels))])
-]
-
-nor_static_yield_table = html.Table(
-    nor_static_table_content,
-    style={'width': '100%', 'borderCollapse': 'collapse', 'border': '1px solid black'},
-)
-
-nor_yield_table_header = html.Div(f"Yields as of {nor_today}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
-
-norwegian_yield_curve_layout = html.Div([
-    html.H1("Historical Norwegian Yield Curve", style={'textAlign':'center'}),
-    dbc.Card(
-        dbc.CardBody(
-            html.Div([
-                html.Div([nor_yield_table_header, nor_static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
-                                                                                'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
-                dcc.RadioItems(
-                    id='nor-date-range',
-                    options=[
-                        {'label': 'Full Range', 'value': 'full'},
-                        {'label': 'Year to Date', 'value': 'ytd'}
-                    ],
-                    value='full',
-                    style={'marginBottom': '20px'}
-                ),
-                dcc.Graph(id='nor-yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
-                html.Br(),
-                dcc.Graph(id='latest-yield-curve-nor', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
-                html.Br(),
-                dcc.Graph(id='nor-yield-curve-2d', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
-                html.Br(),
-                dcc.Graph(id='nor-usd-eur-graph', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
-                html.Br(),
-                dcc.Graph(id='nor-sek-dkk-graph', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
-                create_yield_table(nor_yield_monthly_reset, nor_yield_monthly_reset.columns, ['Date'], 'nor-yield-table')
-            ], style={'textAlign': 'center'})
-        ),
-        className="shadow my-2"  # Adds a shadow effect to the card
+def serve_layout():
+    global nor_cur_data, nor_yield_df, nor_yield_monthly, nor_yield_monthly_reset, nor_last_yields, norwegian_labels
+    global yield_df, yield_df_quarterly, maturity_labels, table_yields, last_yields, static_yield_table, yield_table_header
+    global tab1_content, norwegian_yield_curve_layout
+    
+    # Fetch data here
+    today = datetime.now().date().strftime('%Y-%m-%d')
+    
+    nor_url_cur = f"https://data.norges-bank.no/api/data/EXR/B.USD+EUR+SEK+DKK.NOK.SP?format=csv&startPeriod=2000-03-23&endPeriod={today}&locale=en"
+    nor_url_cur_response = requests.get(nor_url_cur)
+    
+    if nor_url_cur_response.status_code == 200:
+        nor_csv_data = nor_url_cur_response.content.decode('utf-8')
+        nor_cur_data = pd.read_csv(io.StringIO(nor_csv_data), sep=';')[['BASE_CUR', 'QUOTE_CUR', 'TIME_PERIOD', 'OBS_VALUE']]
+    
+    nor_cur_data['Currency'] = nor_cur_data['BASE_CUR'] + "/" + nor_cur_data['QUOTE_CUR']
+    nor_cur_data.drop(['BASE_CUR', 'QUOTE_CUR'], axis=1, inplace=True)
+    nor_cur_data['TIME_PERIOD'] = pd.to_datetime(nor_cur_data['TIME_PERIOD'])
+    
+    nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod={today}&locale=en"
+    
+    nor_response = requests.get(nor_url)
+    
+    if nor_response.status_code == 200:
+        nor_csv_data = nor_response.content.decode('utf-8')
+        nor_data = pd.read_csv(io.StringIO(nor_csv_data), sep=';')
+        nor_data = nor_data[['Tenor', 'TIME_PERIOD', 'OBS_VALUE']].rename(columns={'TIME_PERIOD': 'Date', 'OBS_VALUE': 'Yield'})
+    
+    nor_yield_df = nor_data.pivot(index='Date', columns='Tenor', values='Yield').reset_index()
+    nor_yield_df = nor_yield_df[['Date', '3 months', '6 months', '12 months', '3 years', '5 years', '7 years', '10 years']]
+    nor_yield_df.rename(columns={
+        '3 months': '3M', '6 months': '6M', '12 months': '1Y', '3 years': '3Y',
+        '5 years': '5Y', '7 years': '7Y', '10 years': '10Y'
+    }, inplace=True)
+    
+    nor_yield_df['Date'] = pd.to_datetime(nor_yield_df['Date'])
+    nor_yield_df.set_index('Date', inplace=True)
+    nor_yield_df.dropna(how='all', inplace=True)
+    nor_yield_df.fillna(method='ffill', inplace=True)
+    
+    nor_yield_monthly = nor_yield_df.resample('ME').last()
+    
+    nor_today = datetime.today().date()
+    nor_yield_monthly.sort_index(inplace=True)
+    
+    nor_yield_monthly_reset = nor_yield_monthly.reset_index()
+    nor_yield_monthly_reset.sort_values('Date', ascending=False, inplace=True)
+    nor_yield_monthly_reset['Date'] = nor_yield_monthly_reset['Date'].dt.strftime('%d-%m-%Y')
+    nor_yield_monthly_reset.iloc[0,0] = nor_today.strftime('%d-%m-%Y')
+    
+    nor_last_yields = nor_yield_monthly.iloc[-1]
+    norwegian_labels = ['3M', '6M', '1Y', '3Y', '5Y', '7Y', '10Y']
+    
+    nor_static_table_content = [
+        html.Tr([html.Td('Maturity')] + [html.Td(maturity) for maturity in norwegian_labels]),
+        html.Tr([html.Td('Yield (%)')] + [html.Td(f"{nor_last_yields[i]:.2f}") for i in range(len(norwegian_labels))])
+    ]
+    
+    nor_static_yield_table = html.Table(
+        nor_static_table_content,
+        style={'width': '100%', 'borderCollapse': 'collapse', 'border': '1px solid black'},
     )
-])
-
-
-FRED_API_KEY = '6188d31bebbdca093493a1077d095284'
-fred = Fred(FRED_API_KEY)
-
-observation_start = (datetime.today() - timedelta(days=20 * 365)).strftime('%Y-%m-%d')
-
-maturity_labels = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y']
-series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5',
-              'DGS7', 'DGS10', 'DGS20', 'DGS30']
-
-yield_data = {}
-for series_id in series_ids:
-    yield_data[series_id] = fred.get_series(series_id, observation_start=observation_start)
-
-yield_df = pd.DataFrame(yield_data)
-yield_df.index = pd.to_datetime(yield_df.index)
-
-yield_df.dropna(how='all', inplace=True)
-yield_df.fillna(method='ffill', inplace=True)
-
-yield_df_quarterly = yield_df.resample('QE').last()
-
-today = pd.Timestamp(datetime.today().date())
-
-yield_df_quarterly.sort_index(inplace=True)
-yield_df_quarterly.columns = maturity_labels
-table_yields = yield_df_quarterly.reset_index()
-
-table_yields['index'] = pd.to_datetime(table_yields['index']).dt.strftime('%Y-%m-%d')
-table_yields.rename(columns={'index':'Date'}, inplace=True)
-table_yields.sort_values('Date', ascending=False, inplace=True)
-table_yields.iloc[0,0] = nor_today
-last_yields = yield_df_quarterly.iloc[-1]
-static_table_content = [
-    html.Tr([html.Td('Maturity')] + [html.Td(maturity) for maturity in maturity_labels]),
-    html.Tr([html.Td('Yield (%)')] + [html.Td(f"{last_yields[i]:.2f}") for i in range(len(maturity_labels))])
-]
-
-static_yield_table = html.Table(
-    static_table_content,
-    style={'width': '100%', 'borderCollapse': 'collapse', 'border': '1px solid black'},
-)
-
-yield_table_header = html.Div(f"Yields as of {today.date()}", style={'fontWeight': 'bold', 'marginBottom': '10px', 'textAlign':'center'})
-
-tab1_content = html.Div([
-    html.H1("Historical US Yield Curve", style={'textAlign':'center'}),
-    dbc.Card(
-        dbc.CardBody(
-            html.Div([
-                html.Div([yield_table_header, static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
-                                                                       'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
-                dcc.RadioItems(
-                    id='us-date-range',
-                    options=[
-                        {'label': 'Full Range', 'value': 'full'},
-                        {'label': 'Year to Date', 'value': 'ytd'}
-                    ],
-                    value='full',
-                    style={'marginBottom': '20px'}
-                ),
-                dcc.Graph(id='yield-curve-3df', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
-                html.Br(),
-                dcc.Graph(id='latest-yield-curve-us', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
-                html.Br(),
-                create_yield_table(table_yields, table_yields.columns, ['Date'], 'us-yield-table')
-            ], style={'textAlign': 'center'})
-        ),
-        className="shadow my-2"  # Adds a shadow effect to the card
+    
+    nor_yield_table_header = html.Div(f"Yields as of {nor_today}", style={'fontWeight': 'bold', 'marginBottom': '10px'})
+    
+    # Fetch US data
+    FRED_API_KEY = '6188d31bebbdca093493a1077d095284'
+    fred = Fred(FRED_API_KEY)
+    
+    observation_start = (datetime.today() - timedelta(days=20 * 365)).strftime('%Y-%m-%d')
+    
+    maturity_labels = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y']
+    series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5',
+                  'DGS7', 'DGS10', 'DGS20', 'DGS30']
+    
+    yield_data = {}
+    for series_id in series_ids:
+        yield_data[series_id] = fred.get_series(series_id, observation_start=observation_start)
+    
+    yield_df = pd.DataFrame(yield_data)
+    yield_df.index = pd.to_datetime(yield_df.index)
+    
+    yield_df.dropna(how='all', inplace=True)
+    yield_df.fillna(method='ffill', inplace=True)
+    
+    yield_df_quarterly = yield_df.resample('QE').last()
+    
+    today = pd.Timestamp(datetime.today().date())
+    
+    yield_df_quarterly.sort_index(inplace=True)
+    yield_df_quarterly.columns = maturity_labels
+    table_yields = yield_df_quarterly.reset_index()
+    
+    table_yields['index'] = pd.to_datetime(table_yields['index']).dt.strftime('%Y-%m-%d')
+    table_yields.rename(columns={'index':'Date'}, inplace=True)
+    table_yields.sort_values('Date', ascending=False, inplace=True)
+    table_yields.iloc[0,0] = nor_today
+    last_yields = yield_df_quarterly.iloc[-1]
+    
+    static_table_content = [
+        html.Tr([html.Td('Maturity')] + [html.Td(maturity) for maturity in maturity_labels]),
+        html.Tr([html.Td('Yield (%)')] + [html.Td(f"{last_yields[i]:.2f}") for i in range(len(maturity_labels))])
+    ]
+    
+    static_yield_table = html.Table(
+        static_table_content,
+        style={'width': '100%', 'borderCollapse': 'collapse', 'border': '1px solid black'},
     )
-])
+    
+    yield_table_header = html.Div(f"Yields as of {today.date()}", style={'fontWeight': 'bold', 'marginBottom': '10px', 'textAlign':'center'})
+    
+    tab1_content = html.Div([
+        html.H1("Historical US Yield Curve", style={'textAlign':'center'}),
+        dbc.Card(
+            dbc.CardBody(
+                html.Div([
+                    html.Div([yield_table_header, static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
+                                                                           'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    dcc.RadioItems(
+                        id='us-date-range',
+                        options=[
+                            {'label': 'Full Range', 'value': 'full'},
+                            {'label': 'Year to Date', 'value': 'ytd'}
+                        ],
+                        value='full',
+                        style={'marginBottom': '20px'}
+                    ),
+                    dcc.Graph(id='yield-curve-3df', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    html.Br(),
+                    dcc.Graph(id='latest-yield-curve-us', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    html.Br(),
+                    create_yield_table(table_yields, table_yields.columns, ['Date'], 'us-yield-table')
+                ], style={'textAlign': 'center'})
+            ),
+            className="shadow my-2"  # Adds a shadow effect to the card
+        )
+    ])
+    
+    norwegian_yield_curve_layout = html.Div([
+        html.H1("Historical Norwegian Yield Curve", style={'textAlign':'center'}),
+        dbc.Card(
+            dbc.CardBody(
+                html.Div([
+                    html.Div([nor_yield_table_header, nor_static_yield_table], style={'padding': '10px', 'backgroundColor': '#f9f9f9',
+                                                                                   'borderRadius': '5px', 'marginBottom': '20px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    dcc.RadioItems(
+                        id='nor-date-range',
+                        options=[
+                            {'label': 'Full Range', 'value': 'full'},
+                            {'label': 'Year to Date', 'value': 'ytd'}
+                        ],
+                        value='full',
+                        style={'marginBottom': '20px'}
+                    ),
+                    dcc.Graph(id='nor-yield-curve-3d', config={'scrollZoom': True}, style={'height': '1000px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    html.Br(),
+                    dcc.Graph(id='latest-yield-curve-nor', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    html.Br(),
+                    dcc.Graph(id='nor-yield-curve-2d', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    html.Br(),
+                    dcc.Graph(id='nor-usd-eur-graph', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    html.Br(),
+                    dcc.Graph(id='nor-sek-dkk-graph', style={'height': '500px', 'margin-left':'10%', 'margin-right':'10%'}),
+                    create_yield_table(nor_yield_monthly_reset, nor_yield_monthly_reset.columns, ['Date'], 'nor-yield-table')
+                ], style={'textAlign': 'center'})
+            ),
+            className="shadow my-2"  # Adds a shadow effect to the card
+        )
+    ])
+    
+    layout_page = dbc.Container([
+        dcc.Loading(
+            id="loading-1",
+            children=html.Div([
+                dcc.Tabs(id='tabs-example', value='tab-1', children=[
+                    dcc.Tab(label='US Yield Curve', value='tab-1', style={'padding': '10px'}),
+                    dcc.Tab(label='Norwegian Yield Curve', value='tab-2', style={'padding': '10px'}),
+                ], style={'marginBottom': '20px'}),
+                html.Div(id='tabs-content')
+            ]),
+            type="default",
+            fullscreen=True,
+            style={"position": "fixed", "top": 0, "left": 0, "right": 0, "bottom": 0, "background": "rgba(255, 255, 255, 0.8)"},
+            className="loading-spinner"
+        )
+    ], className='', fluid=True, style={})
+    
+    layout = dbc.Container([html.Div(className='beforediv'), layout_page],
+        className='')
+    
+    return layout
 
-tab2_content = norwegian_yield_curve_layout
 
-layout_page = dbc.Container([
-    dcc.Tabs(id='tabs-example', value='tab-1', children=[
-        dcc.Tab(label='US Yield Curve', value='tab-1', style={'padding': '10px'}),
-        dcc.Tab(label='Norwegian Yield Curve', value='tab-2', style={'padding': '10px'}),
-    ], style={'marginBottom': '20px'}),
-    html.Div(id='tabs-content')
-], className='', fluid=True, style={})
-
-layout = dbc.Container([html.Div(className='beforediv'), layout_page],
-    className='')
+layout = serve_layout
 
 @callback(
     Output('tabs-content', 'children'),

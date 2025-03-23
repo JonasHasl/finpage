@@ -41,6 +41,13 @@ body, html {
 width:47vw;
 }
 
+.loading-spinner {
+  /* Add custom styles here */
+  background-color: #f9f9f9;
+  z-index: 1000;
+}
+
+
 .sliderRow{
     min-width: 300px;
     text-align: center;
