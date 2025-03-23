@@ -70,7 +70,7 @@ def serve_layout():
     # Fetch data here
     today = datetime.now().date().strftime('%Y-%m-%d')
     
-    nor_url_cur = f"https://data.norges-bank.no/api/data/EXR/B.USD+EUR+SEK+DKK.NOK.SP?format=csv&startPeriod=2000-03-23&endPeriod={today}&locale=en"
+    nor_url_cur = f"https://data.norges-bank.no/api/data/EXR/B.USD+EUR+SEK+DKK.NOK.SP?format=csv&startPeriod=2010-01-01&endPeriod={today}&locale=en"
     nor_url_cur_response = requests.get(nor_url_cur)
     
     if nor_url_cur_response.status_code == 200:
@@ -81,7 +81,7 @@ def serve_layout():
     nor_cur_data.drop(['BASE_CUR', 'QUOTE_CUR'], axis=1, inplace=True)
     nor_cur_data['TIME_PERIOD'] = pd.to_datetime(nor_cur_data['TIME_PERIOD'])
     
-    nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2000-10-17&endPeriod={today}&locale=en"
+    nor_url = f"https://data.norges-bank.no/api/data/GOVT_GENERIC_RATES/B.7Y+6M+5Y+3Y+3M+12M+10Y.GBON+TBIL.?format=csv&startPeriod=2010-01-01&endPeriod={today}&locale=en"
     
     nor_response = requests.get(nor_url)
     
@@ -131,7 +131,7 @@ def serve_layout():
     FRED_API_KEY = '6188d31bebbdca093493a1077d095284'
     fred = Fred(FRED_API_KEY)
     
-    observation_start = (datetime.today() - timedelta(days=20 * 365)).strftime('%Y-%m-%d')
+    observation_start = (datetime.today() - timedelta(days=10 * 365)).strftime('%Y-%m-%d')
     
     maturity_labels = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y']
     series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5',
