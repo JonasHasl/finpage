@@ -232,21 +232,13 @@ def serve_layout():
         )
     ])
     
-    layout_page = dbc.Container([
-        dcc.Loading(
-            id="loading-1",
-            children=html.Div([
+    layout_page = dbc.Container([html.Div([
                 dcc.Tabs(id='tabs-example', value='tab-1', children=[
                     dcc.Tab(label='US Yield Curve', value='tab-1', style={'padding': '10px'}),
                     dcc.Tab(label='Norwegian Yield Curve', value='tab-2', style={'padding': '10px'}),
                 ], style={'marginBottom': '20px'}),
                 html.Div(id='tabs-content')
-            ]),
-            type="default",
-            fullscreen=True,
-            style={"position": "fixed", "top": 0, "left": 0, "right": 0, "bottom": 0, "background": "rgba(255, 255, 255, 0.8)"},
-            className="loading-spinner"
-        )
+            ])
     ], className='', fluid=True, style={})
     
     layout = dbc.Container([html.Div(className='beforediv'), layout_page],
