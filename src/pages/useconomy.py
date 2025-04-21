@@ -59,6 +59,9 @@ def load_data():
     economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
     economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
     economy['Close'] = round(economy['Close'], 2)
+    economy['Trade Balance'] = round(economy['Trade Balance'], 0)
+    economy['Trade Balance'] = economy['Trade Balance'].astype(float)*1000000
+    economy['Trade Balance'] = economy['Trade Balance'] / 1e12
 
 
     FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
@@ -88,7 +91,7 @@ load_data()
 
 def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False,
                  hline0=False,
-                 legend=False, YoY=False, Score=False):
+                 legend=False, YoY=False, Score=False, trade=False):
     dataframe = pd.DataFrame(dataframe).ffill().fillna(0)
 
     # Convert 'starts' and 'ends' to datetime.date objects if they aren't already
@@ -107,6 +110,9 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
     # Create the figure
     fig = go.Figure()
 
+    
+
+    
     # Add trace with no fill color (black line)
     fig.add_trace(go.Scatter(
         x=dataframe['Date'],
@@ -319,6 +325,17 @@ cardeconomy = dbc.Container([
     ], className='parent-row', style={'margin': '5px'}),
 
     html.Div([
+        dcc.Graph(id='trade-graph', className='graph')
+
+       
+        # width={'size':5, 'offset':1, 'order':1},
+
+        # xs=6, sm=6, md=6, lg=5, xl=5
+
+        
+    ], className='parent-row', style={'margin': '5px'}),
+
+    html.Div([
         html.H3(
             "Below is a combined economy score visualized, which tries to give a score for the current state of the economy. The score is created by weighing fundamental factors in the economy, like the data visualized above. The data is stationary. The weights on each indicator are "
             "optimized in a long-short strategy of the S&P500 SPY ETF where Sharpe Ratio is maximized. Note that this score does not take into account interactions between the factors. We use data from 1998 for this purpose because of changes in economic conditions.",
@@ -355,6 +372,7 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
      Output('money-supply-graph', 'figure'),
      Output('t10y2y-graph', 'figure'),
      Output('unemployment-graph', 'figure'),
+     Output('trade-graph', 'figure'),
      Output('combined-economy-graph', 'figure'),
      Output('update-output', 'children')],
     [#Input('date-picker-range', 'start_date'),
@@ -415,6 +433,11 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
     unemployment = create_graph(colors['accent'], 'Unemployment Rate', 'Unemployment Rate US', economy,
                                 'unemp_rate', tick='%', starts=start_date,
                                 ends=end_date)
+    
+    tradebalance = create_graph(colors['accent'], 'Trade Balance (Exports-Imports) in Trillions $, Monthly', 'Trade Balance US in Trillions $, Monthly)', economy,
+                                'Trade Balance', tick=' ', starts=start_date,
+                                ends=end_date, trade=True)
+    
     combined_economy = create_graph(colors['accent'], 'Score', 'Combined Economy Score', economy,
                                     'Combined Economy Score',
                                     tick=' ', starts=start_date, ends=end_date, hline1=True,
@@ -426,5 +449,5 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     # Return all figures and the update message
     return (ten_year_yield, shiller_pe, sp500, inflation, interest_to_income, money_supply,
-            t10y2y, unemployment, combined_economy,
+            t10y2y, unemployment, tradebalance, combined_economy,
             f"Last check for new updates: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}" )
