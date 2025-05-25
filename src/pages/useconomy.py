@@ -219,7 +219,7 @@ cardeconomy = dbc.Container([
                        html.H1("Overview", style={'color': 'rgba(61, 181, 105)', 'margin-left': '0px'},
                                className='headerfinvest'),
                        ], className='page-intros', style={'margin': '15px', 'gap': '13px'}),
-    html.Div(children=[descriptioneconomy], className='normal-text',
+    html.Div(id="description-output", children=[descriptioneconomy], className='normal-text',
              style={'max-width': '75%', 'textAlign': 'center', 'font-size': '1,5rem'}),
     html.Br(),
     dcc.Loading(  # Wrap the output component with Loading
@@ -352,7 +352,7 @@ cardeconomy = dbc.Container([
     html.Br(),
     dcc.Interval(  # Add dcc.Interval component
         id='interval-component',
-        interval=6 * 60 * 60 * 1000,  # 6 hours in milliseconds
+        interval=60 * 60 * 1000,  # 6 hours in milliseconds
         n_intervals=0
     )
 
@@ -373,7 +373,8 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
      Output('t10y2y-graph', 'figure'),
      Output('unemployment-graph', 'figure'),
      Output('trade-graph', 'figure'),
-     Output('combined-economy-graph', 'figure'),
+     Output('combined-economy-graph', 'figure'), 
+     Output('description-output', 'children'),
      Output('update-output', 'children')],
     [#Input('date-picker-range', 'start_date'),
      #Input('date-picker-range', 'end_date'),
@@ -386,7 +387,7 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     """Updates all graphs based on date range and interval."""
 
-    global economy, df, firstdate, latestdate, description #Accessing global variables
+    global economy, df, firstdate, latestdate, descriptioneconomy #Accessing global variables
     ctx = callback_context
     if ctx.triggered:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -445,9 +446,9 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     #Update the  description with the latest date
     latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
-    description = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
+    descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
 
     # Return all figures and the update message
     return (ten_year_yield, shiller_pe, sp500, inflation, interest_to_income, money_supply,
-            t10y2y, unemployment, tradebalance, combined_economy,
+            t10y2y, unemployment, tradebalance, combined_economy, descriptioneconomy,
             f"Last check for new updates: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}" )
