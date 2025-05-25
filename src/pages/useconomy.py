@@ -48,7 +48,7 @@ def load_economy_data():
 # Initial load
 economy = load_economy_data()  # Load initial data using the update script
 #print(economy.columns)
-df_with_econ_with_econ = pd.DataFrame()
+df_with_econ = pd.DataFrame()
 
 def load_data():
     """Loads the data from the Google Drive and FRED API."""

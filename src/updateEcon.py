@@ -78,11 +78,15 @@ def updateEcon(reload='incremental'):
     
     # 2. Determine date range for update
     start, end = get_new_dates(oldecon)
+
     if reload == 'full':
         start = oldecon['Date'].min()
         end = datetime.datetime.now()
     
-    if start == end:
+    max_date = oldecon['Date'].max().date()
+    print(max_date)
+    print(datetime.datetime.now().date())
+    if max_date == datetime.datetime.now().date():
         print("No new data to fetch. Existing data is up-to-date.")
         combined = oldecon
         combined.columns = oldecon.columns.str.lower().str.replace(' ', '_')
@@ -163,3 +167,6 @@ def calculate_metrics(df):
     df['CPI YoY'] = df['CPIUS'].pct_change(periods=365)
     #df.ffill(inplace=True)  # Forward fill to handle NaNs
     return df
+
+if __name__ == "__main__":
+    combined = updateEcon(reload='incremental')
