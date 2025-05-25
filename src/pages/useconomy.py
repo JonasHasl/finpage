@@ -11,6 +11,7 @@ from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from fredapi import Fred
+import updateEcon
 
 dash.register_page(__name__, path='/economy')
 
@@ -19,7 +20,7 @@ colors = {
     'text': 'black',
     'accent': '#004172',
     'text-white': 'white',
-    'content': '#EDF3F4'
+    'content': '#Edf_with_econ3F4'
 }
 
 fonts = {
@@ -40,24 +41,32 @@ COLORS = {
     'text-white': 'white',
 }
 
-# Global variables to store the data
-economy = pd.DataFrame()
-df = pd.DataFrame()
+def load_economy_data():
+    # Always load the latest CSV
+    return pd.read_csv("econW_updated.csv", parse_dates=["Date"])
+
+# Initial load
+economy = load_economy_data()  # Load initial data using the update script
+#print(economy.columns)
+df_with_econ_with_econ = pd.DataFrame()
 
 def load_data():
     """Loads the data from the Google Drive and FRED API."""
-    global economy, df, latestdate, firstdate
+    global economy, df_with_econ, latestdate, firstdate
 
-    file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
-    download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-    economy = pd.read_csv(download_url)
-
-    economy['InflationExp'] = economy['InflationExp'] / 100
+    # file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
+    # download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    # economy = pd.read_csv(download_url)
+    # 1. Run the update script (this updates the CSV)
+    updateEcon.updateEcon(reload='incremental')  # Call the update function to get the latest data
+    # 2. Reload the updated CSV
+    economy = load_economy_data()
+    #economy['InflationExp'] = economy['InflationExp'] / 100
     economy['unemp_rate'] = economy['unemp_rate'] / 100
     economy['TenYield'] = economy['TenYield'] / 100
-    economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
-    economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
-    economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
+    economy['Shiller_PE'] = round(economy['Shiller_PE'], 2)
+    #economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
+    #economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
     economy['Close'] = round(economy['Close'], 2)
     economy['Trade Balance'] = round(economy['Trade Balance'], 0)
     economy['Trade Balance'] = economy['Trade Balance'].astype(float)*1000000
@@ -70,16 +79,16 @@ def load_data():
     interest_payments = fred.get_series('A091RC1Q027SBEA')
     government_revenue = fred.get_series('FGRECPT')
 
-    interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
-    revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
+    interest_df_with_econ = pd.DataFrame(interest_payments, columns=['Interest Payments'])
+    revenue_df_with_econ = pd.DataFrame(government_revenue, columns=['Total Revenue'])
 
-    df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
-    df.index = pd.to_datetime(df.index)
-    df.reset_index(inplace=True)
-    df.rename(columns={'index': 'Date'}, inplace=True)
+    df_with_econ = pd.merge(interest_df_with_econ, revenue_df_with_econ, left_index=True, right_index=True)
+    df_with_econ.index = pd.to_datetime(df_with_econ.index)
+    df_with_econ.reset_index(inplace=True)
+    df_with_econ.rename(columns={'index': 'Date'}, inplace=True)
 
-    df['Interest to Income Ratio'] = ((df['Interest Payments']) / df['Total Revenue'])
-    df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'], 2)
+    df_with_econ['Interest to Income Ratio'] = ((df_with_econ['Interest Payments']) / df_with_econ['Total Revenue'])
+    df_with_econ['Interest to Income Ratio'] = round(df_with_econ['Interest to Income Ratio'], 2)
     latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
     firstdate = str(pd.to_datetime(economy['Date']).dt.date.head(1).values[0])
     print("Data Loaded Successfully") #Added print to confirm if data loaded.
@@ -335,20 +344,20 @@ cardeconomy = dbc.Container([
         
     ], className='parent-row', style={'margin': '5px'}),
 
-    html.Div([
-        html.H3(
-            "Below is a combined economy score visualized, which tries to give a score for the current state of the economy. The score is created by weighing fundamental factors in the economy, like the data visualized above. The data is stationary. The weights on each indicator are "
-            "optimized in a long-short strategy of the S&P500 SPY ETF where Sharpe Ratio is maximized. Note that this score does not take into account interactions between the factors. We use data from 1998 for this purpose because of changes in economic conditions.",
-            className='normal-text', style={'textAlign': 'center'}),
-        html.Hr(), ], style={'margin': '5%'}),
+    # html.Div([
+    #     html.H3(
+    #         "Below is a combined economy score visualized, which tries to give a score for the current state of the economy. The score is created by weighing fundamental factors in the economy, like the data visualized above. The data is stationary. The weights on each indicator are "
+    #         "optimized in a long-short strategy of the S&P500 SPY ETF where Sharpe Ratio is maximized. Note that this score does not take into account interactions between the factors. We use data from 1998 for this purpose because of changes in economic conditions.",
+    #         className='normal-text', style={'textAlign': 'center'}),
+    #     html.Hr(), ], style={'margin': '5%'}),
 
-    html.Div([
+    # html.Div([
 
-        dcc.Graph(
-            id='combined-economy-graph', style={})  # 'height':'43vw'})
-    ], className='graph', style={'width': '80%'}
+    #     dcc.Graph(
+    #         id='combined-economy-graph', style={})  # 'height':'43vw'})
+    # ], className='graph', style={'width': '80%'}
 
-    ),
+    # ),
     html.Br(),
     dcc.Interval(  # Add dcc.Interval component
         id='interval-component',
@@ -373,7 +382,7 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
      Output('t10y2y-graph', 'figure'),
      Output('unemployment-graph', 'figure'),
      Output('trade-graph', 'figure'),
-     Output('combined-economy-graph', 'figure'), 
+     #Output('combined-economy-graph', 'figure'), 
      Output('description-output', 'children'),
      Output('update-output', 'children')],
     [#Input('date-picker-range', 'start_date'),
@@ -387,7 +396,7 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     """Updates all graphs based on date range and interval."""
 
-    global economy, df, firstdate, latestdate, descriptioneconomy #Accessing global variables
+    global economy, df_with_econ, firstdate, latestdate, descriptioneconomy #Accessing global variables
     ctx = callback_context
     if ctx.triggered:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -414,16 +423,16 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
     ten_year_yield = create_graph(colors['accent'], 'Yield', '10-yr Treasury Yield %', economy, 'TenYield', tick='%',
                                   starts=start_date, ends=end_date)
     shiller_pe = create_graph(colors['accent'], 'Shiller P/E Ratio', 'Shiller P/E Ratio', economy,
-                              'Shiller_P/E',
+                              'Shiller_PE',
                               tick=' ', starts=start_date, ends=end_date)
     sp500 = create_graph(colors['accent'], 'Price', 'S&P 500 Index', economy,
                           'Close', tick=' ', starts=start_date,
                           ends=end_date)
-    inflation = create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'YoY',
+    inflation = create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'CPI YoY',
                               tick='%',
                               starts=start_date_infl, ends=end_date, YoY=True)
     interest_to_income = create_graph(colors['accent'], 'Interest to Income Ratio',
-                                      'Federal Interest Payments to Revenues Ratio', df,
+                                      'Federal Interest Payments to Revenues Ratio', df_with_econ,
                                       'Interest to Income Ratio', tick='%', starts=start_date,
                                       ends=end_date)
     money_supply = create_graph(colors['accent'], 'Money Supply M2', 'Money Supply US M2', economy,
@@ -439,10 +448,10 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
                                 'Trade Balance', tick=' ', starts=start_date,
                                 ends=end_date, trade=True)
     
-    combined_economy = create_graph(colors['accent'], 'Score', 'Combined Economy Score', economy,
-                                    'Combined Economy Score',
-                                    tick=' ', starts=start_date, ends=end_date, hline1=True,
-                                    textbox=True, Score=True)
+    # combined_economy = create_graph(colors['accent'], 'Score', 'Combined Economy Score', economy,
+    #                                 'Combined Economy Score',
+    #                                 tick=' ', starts=start_date, ends=end_date, hline1=True,
+    #                                 textbox=True, Score=True)
 
     #Update the  description with the latest date
     latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
@@ -450,5 +459,5 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     # Return all figures and the update message
     return (ten_year_yield, shiller_pe, sp500, inflation, interest_to_income, money_supply,
-            t10y2y, unemployment, tradebalance, combined_economy, descriptioneconomy,
+            t10y2y, unemployment, tradebalance, descriptioneconomy,
             f"Last check for new updates: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}" )
