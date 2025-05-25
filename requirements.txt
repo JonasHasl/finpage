@@ -17,9 +17,10 @@ fredapi
 yfinance
 bs4
 requests
-requests_html
 scipy
+requests_html
 ipython
 xlrd
 dash==2.11.1
 plotly==5.16.0
+lxml_html_clean
