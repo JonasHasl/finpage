@@ -108,7 +108,7 @@ def updateEcon(reload='full'):
     }
 
     # 4. Create complete date index
-    date_range = pd.date_range(start=start, end=end, freq='D')
+    date_range = pd.date_range(start=start, end=end, freq='B')
     combined = pd.DataFrame({'Date': date_range})
 
     # 5. Merge all datasets
@@ -122,14 +122,17 @@ def updateEcon(reload='full'):
         if not df.empty:
             combined = combined.merge(df, on='Date', how='left')
 
-
     # 6. Combine with historical data
-    combined = pd.concat([oldecon, combined], ignore_index=True)
+    if reload == 'incremental':
+        combined = pd.concat([oldecon, combined], ignore_index=True)
+    else:
+        combined = combined
     combined = combined.drop_duplicates('Date').sort_values('Date')
 
     # 7. Perform all calculations
     combined.ffill(inplace=True)  # Forward fill to handle NaNs
     combined = calculate_metrics(combined)
+   #combined = combined.loc[1:]
     combined.to_csv(updated_path, index=False)
     #combined.columns = combined.columns.str.lower().str.replace(' ', '_')
     # 8. Save updated data
@@ -166,9 +169,9 @@ def calculate_metrics(df):
     df['Trade Balance Rolling 12'] = df['Trade Balance'].pct_change(periods=12).rolling(12, min_periods=1).mean()
     # Economic calculations
     df['Real_Yield'] = df['T10Y2Y'] - (df['CPIUS'].pct_change(12) * 100)
-    df['CPI YoY'] = df['CPIUS'].pct_change(periods=365)
+    df['CPI YoY'] = df['CPIUS'].pct_change(periods=252)
     #df.ffill(inplace=True)  # Forward fill to handle NaNs
     return df
 
-# if __name__ == "__main__":
-#     combined = updateEcon(reload='full')
+if __name__ == "__main__":
+    combined = updateEcon(reload='incremental')
