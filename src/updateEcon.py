@@ -72,8 +72,9 @@ def fetch_shiller_pe():
 
 
 # --- MAIN WORKFLOW ---
-def updateEcon(reload='incremental'):
+def updateEcon(reload='full'):
     # 1. Load existing data
+    print("Reload mode:", reload)
     oldecon = load_existing_data(oldecon_path)
     
     # 2. Determine date range for update
@@ -86,7 +87,8 @@ def updateEcon(reload='incremental'):
     max_date = oldecon['Date'].max().date()
     print(max_date)
     print(datetime.datetime.now().date())
-    if max_date == datetime.datetime.now().date():
+    print("Reload mode:", reload)
+    if max_date == datetime.datetime.now().date() and reload == 'incremental':
         print("No new data to fetch. Existing data is up-to-date.")
         combined = oldecon
         combined.columns = oldecon.columns.str.lower().str.replace(' ', '_')
@@ -168,5 +170,5 @@ def calculate_metrics(df):
     #df.ffill(inplace=True)  # Forward fill to handle NaNs
     return df
 
-if __name__ == "__main__":
-    combined = updateEcon(reload='incremental')
+# if __name__ == "__main__":
+#     combined = updateEcon(reload='full')

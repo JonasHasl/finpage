@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, date  # Import date
 import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
-from update_script import update_dataset #Commented out due to missing script
 from dash import callback_context
 from dash import dcc, callback, html
 from dash.dependencies import Input, Output
@@ -51,14 +50,9 @@ economy = load_economy_data()  # Load initial data using the update script
 df_with_econ = pd.DataFrame()
 
 def load_data():
-    """Loads the data from the Google Drive and FRED API."""
     global economy, df_with_econ, latestdate, firstdate
 
-    # file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
-    # download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-    # economy = pd.read_csv(download_url)
-    # 1. Run the update script (this updates the CSV)
-    updateEcon.updateEcon(reload='incremental')  # Call the update function to get the latest data
+    updateEcon.updateEcon(reload='incremental') 
     # 2. Reload the updated CSV
     economy = load_economy_data()
     #economy['InflationExp'] = economy['InflationExp'] / 100
@@ -127,7 +121,7 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
         x=dataframe['Date'],
         y=dataframe[y],
         mode='lines',  # Just the line, no fill
-        line_color='black',  # Black line color
+        line_color='#2a3f5f', # Black line color 
         showlegend=False  # No legend needed for this trace
     ))
 
@@ -222,7 +216,7 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
     return fig
 
 # description
-descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest date in the dataset: {latestdate}'''
+descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com.'''
 cardeconomy = dbc.Container([
     html.Div(children=[html.H1("Economy", style={'margin-right': '-5px'}, className='headerfinvest'),
                        html.H1("Overview", style={'color': 'rgba(61, 181, 105)', 'margin-left': '0px'},
@@ -360,8 +354,8 @@ cardeconomy = dbc.Container([
     # ),
     html.Br(),
     dcc.Interval(  # Add dcc.Interval component
-        id='interval-component',
-        interval=60 * 60 * 1000,  # 6 hours in milliseconds
+        id='interval-component-economy',
+        interval=3600*1000*6,  # 6 hours in milliseconds
         n_intervals=0
     )
 
@@ -388,7 +382,7 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
     [#Input('date-picker-range', 'start_date'),
      #Input('date-picker-range', 'end_date'),
      Input('date-range-selector', 'value'),
-     Input('interval-component', 'n_intervals'),
+     Input('interval-component-economy', 'n_intervals'),
      Input('refresh-button', 'n_clicks')],
     prevent_initial_call=False
 )
@@ -455,7 +449,7 @@ def update_all_graphs(range_selector, n_intervals, n_clicks):
 
     #Update the  description with the latest date
     latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
-    descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com. Latest update: {latestdate}'''
+    descriptioneconomy = f''' An overview of the US economy. Source of data is FRED API and multpl.com.'''
 
     # Return all figures and the update message
     return (ten_year_yield, shiller_pe, sp500, inflation, interest_to_income, money_supply,

@@ -2,7 +2,7 @@
 # coding: utf-8
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, timedelta
+
 import dash_bootstrap_components as dbc
 import dash
 from dash import html, dcc
@@ -11,7 +11,9 @@ from dash import dcc, callback, html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
-
+from updateEcon import updateEcon
+from datetime import datetime, timedelta
+import os
 #dash.register_page(__name__, path='/economy')
 
 
@@ -42,19 +44,27 @@ COLORS = {
 }
 
 
-file_id = '1J47a0_lyfhRzcYlniXUKE-5yVKNbWX6j'
-download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-economy = pd.read_csv(download_url)
 
-#economy = pd.read_csv("https://www.dropbox.com/scl/fi/4xgez6scpfj5sh46eokxa/econW.csv?rlkey=nk06610ol4qtck25uum6o3n5l&st=wt5378pm&dl=1").drop(['Unnamed: 0', 'level_0'], axis=1)
+
+# # Get the directory of the current script
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# # Go up one folder
+# parent_dir = os.path.dirname(current_dir)
+
+# # Construct the file path
+# file_path = os.path.join(parent_dir, 'econW_updated.csv')
+
+# Read the CSV
+#updateEcon('full') 
+economy = pd.read_csv('econW_updated.csv', parse_dates=['Date'])
+
+economy['Date'] = pd.to_datetime(economy['Date'])
+
 latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
-#'https://www.dropbox.com/scl/fi/zwcl7yhhlnk6nqg9j16r7/econW.csv?rlkey=1k0r4dnqxc4gmukgxphh0n591&dl=1'
-economy['InflationExp'] = economy['InflationExp'] / 100
 economy['unemp_rate'] = economy['unemp_rate'] / 100
 economy['TenYield'] = economy['TenYield'] / 100
-economy['Shiller_P/E'] = round(economy['Shiller_P/E'], 2)
-economy['Combined Economy Score'] = round(economy['Combined Economy Score'], 2)
-economy['Consumer Confidence'] = round(economy['ConsumerConfidence'], 2)
+economy['Shiller_PE'] = round(economy['Shiller_PE'], 2)
 economy['Close'] = round(economy['Close'], 2)
 from fredapi import Fred
 import pandas as pd
@@ -62,33 +72,22 @@ import matplotlib.pyplot as plt
 # Initialize FRED API
 FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
 fred = Fred(FRED_API_KEY)
-# Retrieve data from FRED
-# Series ID for Interest Payments: FGEXPND
-# Series ID for Government Receipts: FGRECPT
-interest_payments = fred.get_series('A091RC1Q027SBEA')
-government_revenue = fred.get_series('FGRECPT')
-#interesttogdp = fred.get_series('FYOIGDA188S')
-#tenyear = fred.get_series('DGS10').resample('AS-JAN').first()
+interest_payments = fred.get_series('A091RC1Q027SBEA', observation_start='2000-01-01')
+government_revenue = fred.get_series('FGRECPT', observation_start='2000-01-01')
 
-# Convert the data into a DataFrame for easier handling
+
 interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
 revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
-#interesttogdp_df = pd.DataFrame(interesttogdp, columns=['Interest to GDP'])
-#tenyear_df = pd.DataFrame(tenyear, columns=['10-year'])
-# Merge the two datasets on the date index
+
 df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
-#df = pd.merge(df, interesttogdp_df,  left_index=True, right_index=True)
-#df = pd.merge(df, tenyear_df,  left_index=True, right_index=True)
-# Convert the index to a datetime index and extract the year
+
 df.index = pd.to_datetime(df.index)
 df.reset_index(inplace=True)
 df.rename(columns={'index':'Date'}, inplace=True)
 
-# Calculate the interest-to-income ratio
+
 df['Interest to Income Ratio'] = ((df['Interest Payments'])/df['Total Revenue'])
 df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 2)
-
-
 
 def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=False, textbox=False, pred=False, hline0=False,
                  legend=False, YoY=False, Score=False):
@@ -124,11 +123,11 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
     fig.update_yaxes(tickformat=".1" + str(tick))
     
     # Conditional traces and other configurations
-    if pred == True:
-        fig.add_traces(
-            list(go.Scatter(x=dataframe['Date'], y=dataframe['Forward Return'], fill='tozeroy', fillcolor='skyblue').select_traces()))
-        fig.add_traces(
-            list(go.Scatter(x=dataframe['Date'], y=dataframe['SP Trailing 4 Weeks Return'], fill='tozeroy', fillcolor='red').select_traces()))
+    #if pred == True:
+        # fig.add_traces(
+        #     list(go.Scatter(x=dataframe['Date'], y=dataframe['Forward Return'], fill='tozeroy', fillcolor='skyblue').select_traces()))
+        # fig.add_traces(
+        #     list(go.Scatter(x=dataframe['Date'], y=dataframe['SP Trailing 4 Weeks Return'], fill='tozeroy', fillcolor='red').select_traces()))
     
     if hline1 == True:
         fig.add_hline(y=35, line_width=3, line_dash="dash", line_color="orange")
@@ -198,7 +197,7 @@ cardeconomy = dbc.Container([
             dcc.Loading(  # Wrap the output component with Loading
                 id="loading",
                 type="default",  # or "circle" or "dot" or "cube"
-                children=html.Div(id="update-output", style={'font-size':'11', 'color':'gray'})
+                children=html.Div(id="update-output-economy", style={'font-size':'11', 'color':'gray'})
             ),
             html.Hr(),
 
@@ -214,7 +213,7 @@ cardeconomy = dbc.Container([
                 html.Div([
 
                     dcc.Graph(figure=create_graph(colors['accent'], 'Shiller P/E Ratio', 'Shiller P/E Ratio', economy,
-                                                  'Shiller_P/E',
+                                                  'Shiller_PE',
                                                   tick=' ', starts='2000-01-01', ends=str(datetime.today())), className='graph'),
                 ], style={'margin':'5px'}  # className='six columns' #width={'size':5, 'offset':0, 'order':2},
 
@@ -230,7 +229,7 @@ cardeconomy = dbc.Container([
                 html.Div([
 
                     dcc.Graph(
-                    figure=create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'YoY', tick='%',
+                    figure=create_graph(colors['accent'], 'Inflation YoY', 'Inflation US YoY-Change %', economy, 'CPI YoY', tick='%',
                                         starts='1995-01-01', ends=str(datetime.today()), YoY=True),  className='graph',
                     style={'border-right': '1px rgba(1, 1, 1, 1)'})
 
@@ -290,22 +289,22 @@ cardeconomy = dbc.Container([
 
 
 
-        html.Div([
-                html.H3(
-                    "Below is a combined economy score visualized, which tries to give a score for the current state of the economy. The score is created by weighing fundamental factors in the economy, like the data visualized above. The data is stationary. The weights on each indicator are "
-                    "optimized in a long-short strategy of the S&P500 SPY ETF where Sharpe Ratio is maximized. Note that this score does not take into account interactions between the factors. We use data from 1998 for this purpose because of changes in economic conditions.",
-                    className='normal-text', style={'textAlign':'center'}),
-                html.Hr(),], style={'margin':'5%'}),
+        # html.Div([
+        #         html.H3(
+        #             "Below is a combined economy score visualized, which tries to give a score for the current state of the economy. The score is created by weighing fundamental factors in the economy, like the data visualized above. The data is stationary. The weights on each indicator are "
+        #             "optimized in a long-short strategy of the S&P500 SPY ETF where Sharpe Ratio is maximized. Note that this score does not take into account interactions between the factors. We use data from 1998 for this purpose because of changes in economic conditions.",
+        #             className='normal-text', style={'textAlign':'center'}),
+        #         html.Hr(),], style={'margin':'5%'}),
 
-        html.Div([
+        # html.Div([
 
-            dcc.Graph(
-                figure=create_graph(colors['accent'], 'Score', 'Combined Economy Score', economy, 'Combined Economy Score',
-                                    tick=' ', starts='2000-01-01', ends=str(datetime.today()), hline1=True,
-                                    textbox=True, Score=True), style={})  # 'height':'43vw'})
-        ], className='graph' , style={'width':'80%'}
+        #     dcc.Graph(
+        #         figure=create_graph(colors['accent'], 'Score', 'Combined Economy Score', economy, 'Combined Economy Score',
+        #                             tick=' ', starts='2000-01-01', ends=str(datetime.today()), hline1=True,
+        #                             textbox=True, Score=True), style={})  # 'height':'43vw'})
+        # ], className='graph' , style={'width':'80%'}
 
-        ),
+        # ),
         html.Br()
         
 ], className='parent-container2', fluid=True, style={})
@@ -314,3 +313,46 @@ cardeconomy = dbc.Container([
 layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
     className='')
 
+
+@callback(
+    Output("update-output-economy", "children"),
+    [Input("update-button", "n_clicks")],
+    prevent_initial_call=False
+)
+def run_update(n_clicks):
+    reload = 'full' if n_clicks is None else 'full'
+    updateEcon(reload)  # Call the update function
+    economy = pd.read_csv('econW_updated.csv', parse_dates=['Date'])
+
+    economy['Date'] = pd.to_datetime(economy['Date'])
+
+    latestdate = str(pd.to_datetime(economy['Date']).dt.date.tail(1).values[0])
+    economy['unemp_rate'] = economy['unemp_rate'] / 100
+    economy['TenYield'] = economy['TenYield'] / 100
+    economy['Shiller_PE'] = round(economy['Shiller_PE'], 2)
+    economy['Close'] = round(economy['Close'], 2)
+    from fredapi import Fred
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    # Initialize FRED API
+    FRED_API_KEY = '29f9bb6865c0b3be320b44a846d539ea'
+    fred = Fred(FRED_API_KEY)
+    interest_payments = fred.get_series('A091RC1Q027SBEA', observation_start='2000-01-01')
+    government_revenue = fred.get_series('FGRECPT', observation_start='2000-01-01')
+
+
+    interest_df = pd.DataFrame(interest_payments, columns=['Interest Payments'])
+    revenue_df = pd.DataFrame(government_revenue, columns=['Total Revenue'])
+
+    df = pd.merge(interest_df, revenue_df, left_index=True, right_index=True)
+
+    df.index = pd.to_datetime(df.index)
+    df.reset_index(inplace=True)
+    df.rename(columns={'index':'Date'}, inplace=True)
+
+
+    df['Interest to Income Ratio'] = ((df['Interest Payments'])/df['Total Revenue'])
+    df['Interest to Income Ratio'] = round(df['Interest to Income Ratio'] , 2)
+
+    return f"Dataset updated successfully!"
+        

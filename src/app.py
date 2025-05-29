@@ -5,7 +5,7 @@ import re
 from dash.dependencies import Input, Output, State
 import os
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+#os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 app = dash.Dash(__name__, use_pages=True,
                 external_stylesheets=['custom.css', 'missing.css',
@@ -38,9 +38,6 @@ data:image/svg+xml;utf8,<svg width="12" height="10" xmlns="http://www.w3.org/200
 data_url_triangle_right = """
 data:image/svg+xml;utf8,<svg width="10" height="12" xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 0,12 10,6" style="fill:white"/></svg>
 """
-
-
-
 
 header_banner = dbc.Navbar(
     [
@@ -289,5 +286,5 @@ def find_free_port():
        return s.getsockname()[1]
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
+    app.run(debug=False, port=find_free_port())#, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
 
