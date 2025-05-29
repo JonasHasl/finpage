@@ -289,5 +289,5 @@ def find_free_port():
        return s.getsockname()[1]
 
 if __name__ == '__main__':
-    app.run(debug=True)#, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
+    app.run(debug=False, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
 
