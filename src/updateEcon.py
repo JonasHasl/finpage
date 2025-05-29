@@ -72,7 +72,7 @@ def fetch_shiller_pe():
 
 
 # --- MAIN WORKFLOW ---
-def updateEcon(reload='full'):
+def updateEcon(reload='full', start_full='2000-01-01'):
     # 1. Load existing data
     print("Reload mode:", reload)
     oldecon = load_existing_data(oldecon_path)
@@ -81,7 +81,7 @@ def updateEcon(reload='full'):
     start, end = get_new_dates(oldecon)
 
     if reload == 'full':
-        start = oldecon['Date'].min()
+        start = pd.to_datetime(start_full)
         end = datetime.datetime.now()
     
     max_date = oldecon['Date'].max().date()
@@ -108,7 +108,7 @@ def updateEcon(reload='full'):
     }
 
     # 4. Create complete date index
-    date_range = pd.date_range(start=start, end=end, freq='B')
+    date_range = pd.date_range(start=start, end=end, freq='D')
     combined = pd.DataFrame({'Date': date_range})
 
     # 5. Merge all datasets
@@ -132,7 +132,8 @@ def updateEcon(reload='full'):
     # 7. Perform all calculations
     combined.ffill(inplace=True)  # Forward fill to handle NaNs
     combined = calculate_metrics(combined)
-   #combined = combined.loc[1:]
+    if reload == 'full':
+        combined = combined.loc[1:]
     combined.to_csv(updated_path, index=False)
     #combined.columns = combined.columns.str.lower().str.replace(' ', '_')
     # 8. Save updated data
@@ -169,9 +170,9 @@ def calculate_metrics(df):
     df['Trade Balance Rolling 12'] = df['Trade Balance'].pct_change(periods=12).rolling(12, min_periods=1).mean()
     # Economic calculations
     df['Real_Yield'] = df['T10Y2Y'] - (df['CPIUS'].pct_change(12) * 100)
-    df['CPI YoY'] = df['CPIUS'].pct_change(periods=252)
+    df['CPI YoY'] = df['CPIUS'].pct_change(periods=365)
     #df.ffill(inplace=True)  # Forward fill to handle NaNs
     return df
 
 if __name__ == "__main__":
-    combined = updateEcon(reload='incremental')
+    combined = updateEcon(reload='full')
