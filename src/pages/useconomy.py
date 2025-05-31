@@ -121,7 +121,8 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
         x=dataframe['Date'],
         y=dataframe[y],
         mode='lines',  # Just the line, no fill
-        line_color='#2a3f5f', # Black line color 
+        line_color='#2a3f5f', # Black line color
+        line=dict(width=1),  # Line width 
         showlegend=False  # No legend needed for this trace
     ))
 

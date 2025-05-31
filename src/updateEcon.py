@@ -72,7 +72,7 @@ def fetch_shiller_pe():
 
 
 # --- MAIN WORKFLOW ---
-def updateEcon(reload='full', start_full='2000-01-01'):
+def updateEcon(reload='full', start_full='1998-12-26'):
     # 1. Load existing data
     print("Reload mode:", reload)
     oldecon = load_existing_data(oldecon_path)
@@ -133,7 +133,7 @@ def updateEcon(reload='full', start_full='2000-01-01'):
     combined.ffill(inplace=True)  # Forward fill to handle NaNs
     combined = calculate_metrics(combined)
     if reload == 'full':
-        combined = combined.loc[1:]
+        combined = combined[combined['Date'] >= '2000-01-01']  # Filter for full reload
     combined.to_csv(updated_path, index=False)
     #combined.columns = combined.columns.str.lower().str.replace(' ', '_')
     # 8. Save updated data
