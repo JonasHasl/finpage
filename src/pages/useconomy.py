@@ -126,6 +126,44 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
         showlegend=False  # No legend needed for this trace
     ))
 
+    fig.add_trace(go.Scatter(
+        x=[dataframe['Date'].iloc[-1]],
+        y=[dataframe[y].iloc[-1]],  # Use .iloc here for integer indexing
+        mode='markers',
+        marker=dict(color='red', size=6),
+        showlegend=False
+    ))
+
+    last_y_value = dataframe[y].iloc[-1]
+    last_x_value = dataframe['Date'].iloc[-1]
+
+    # Format the y-value according to the tick argument
+    if tick == "%":
+        text = f"{last_x_value}: {last_y_value:.2%}"
+    else:
+        text = f"{last_x_value}: {last_y_value:.2f}"
+
+    last_y_value = dataframe[y].iloc[-1]
+    last_x_value = dataframe['Date'].iloc[-1]
+
+    if tick == "%":
+        formatted_y = f"{last_y_value:.2%}"
+    else:
+        formatted_y = f"{last_y_value:.2f}"
+
+    fig.add_annotation(
+        x=1,  # Right edge of plotting area
+        y=1,  # Top edge of plotting area
+        xref="paper",
+        yref="paper",
+        text=f"{last_x_value}: {formatted_y}",
+        showarrow=False,
+        font=dict(color="black"),
+        xanchor="right",  # Align text to the right
+        yanchor="top"  # Align text to the bottom
+    )
+
+
     # Dynamically adjust y-axis range
     y_min = dataframe[y].min()
     y_max = dataframe[y].max()
