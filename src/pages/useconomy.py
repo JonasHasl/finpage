@@ -158,9 +158,11 @@ def create_graph(color, yaxis, title, dataframe, y, tick, starts, ends, hline1=F
         yref="paper",
         text=f"{last_x_value}: {formatted_y}",
         showarrow=False,
-        font=dict(color="black"),
+        #font=dict(color="black"),
         xanchor="right",  # Align text to the right
-        yanchor="top"  # Align text to the bottom
+        yanchor="top",  # Align text to the bottom
+        bordercolor='black',
+        borderwidth=0.8
     )
 
 
