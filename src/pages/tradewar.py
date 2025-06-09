@@ -11,7 +11,7 @@ import dash_bootstrap_components as dbc
 import io
 import requests
 
-dash.register_page(__name__, path='/trade_war')
+#dash.register_page(__name__, path='/trade_war')
 
 # --- Imports ---
 from pandas_datareader import wb

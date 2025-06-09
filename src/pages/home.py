@@ -34,10 +34,16 @@ layout = html.Div([
                 style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
 
                 html.Div([
-                    html.Div([html.A([html.Span("Trade War")], style={'display':'inline-block', 'font-size':'2rem', 'width':'75%'}, className='headers', href="/trade_war"),], style={'text-align':'center'}) ,
-                    dcc.Markdown("Overview of the ongoing trade war")
+                    html.Div([html.A([html.Span("Algorithm")], style={'display':'inline-block', 'font-size':'2rem', 'width':'75%'}, className='headers', href="/algo"),], style={'text-align':'center'}) ,
+                    dcc.Markdown("Overview of optimized fundamental stock selection algorithm")
                 ], className='page-intro',
                 style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
+
+                # html.Div([
+                #     html.Div([html.A([html.Span("Trade War")], style={'display':'inline-block', 'font-size':'2rem', 'width':'75%'}, className='headers', href="/trade_war"),], style={'text-align':'center'}) ,
+                #     dcc.Markdown("Overview of the ongoing trade war")
+                # ], className='page-intro',
+                # style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
                 
 
 

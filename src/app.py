@@ -80,7 +80,7 @@ header_banner = dbc.Navbar(
                                                             'textAlign':'right'
 
                                                         },), className='menuitemtop'),
-                dbc.NavItem(dbc.NavLink("Trade War", href="/trade_war", style={
+                dbc.NavItem(dbc.NavLink("Algorithm", href="/algo", style={
                                                             "border": "none",
                                                             'font-size':'24px',
                                                             "color": '#7a7a7a',
@@ -88,6 +88,14 @@ header_banner = dbc.Navbar(
                                                             'textAlign':'right'
 
                                                         },), className='menuitemtop'),
+                # dbc.NavItem(dbc.NavLink("Trade War", href="/trade_war", style={
+                #                                             "border": "none",
+                #                                             'font-size':'24px',
+                #                                             "color": '#7a7a7a',
+                #                                             'text-transform': 'none',
+                #                                             'textAlign':'right'
+
+                #                                         },), className='menuitemtop'),
                     ], id='output_div2', className='banner-row', style={'display':''}),
             #html.Button(' ', id='show_hide_button2', className='buttonMenu', style={'display':''}),
             ],

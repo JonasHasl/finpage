@@ -127,3 +127,45 @@ a:hover::before {
     content: none;  /* This will remove the underscore entirely */
   }
 }
+
+
+.my-card-container{
+  display:flex;
+  flex-direction:row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-evenly;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+
+
+.my-card-container .card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1rem;
+  background-color: #e9ecef;
+  transition: transform 0.2s, box-shadow 0.2s;
+  width: 200px;
+}
+
+.my-card-container .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.my-card-container .card-body {
+  padding: 5px;
+}
+
+.my-card-container .card-text {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #2c3e50;
+  text-align: center;
+}
