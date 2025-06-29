@@ -24,12 +24,12 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime
 import numpy as np
 
-from dash import DiskcacheManager, CeleryManager
-import diskcache
+# from dash import DiskcacheManager, CeleryManager
+# import diskcache
 
-# Use diskcache for async
-cache = diskcache.Cache("./cache")
-background_callback_manager = DiskcacheManager(cache)
+# # Use diskcache for async
+# cache = diskcache.Cache("./cache")
+# background_callback_manager = DiskcacheManager(cache)
 
 colors = {
     'background': '#D6E4EA',
@@ -300,8 +300,8 @@ layout = dbc.Container([html.Div(className='beforediv'),
     html.Br(),
     
     dbc.Row([html.Div([  # Portfolio Total Return and Std Dev
-        dbc.Col(html.Div(id='portfolio-total-card'), width=6),
-        dbc.Col(html.Div(id='portfolio-std-card'), width=6)]
+        dbc.Col(html.Div(id='portfolio-total-card'), width=3),
+        dbc.Col(html.Div(id='portfolio-std-card'), width=3)]
     , className='my-card-container')]),
     
     dbc.Row([html.Div([
