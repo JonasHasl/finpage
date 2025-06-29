@@ -149,7 +149,7 @@ a:hover::before {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   margin-bottom: 1rem;
-  background-color: #e9ecef;
+  background-color: #ffffff;
   transition: transform 0.2s, box-shadow 0.2s;
   width: 200px;
 }

@@ -299,26 +299,36 @@ layout = dbc.Container([html.Div(className='beforediv'),
     ]),
     html.Br(),
     
+    html.Div([
     dbc.Row([html.Div([  # Portfolio Total Return and Std Dev
         dbc.Col(html.Div(id='portfolio-total-card'), width=3),
         dbc.Col(html.Div(id='portfolio-std-card'), width=3)]
-    , className='my-card-container')]),
+    )]),
+    
+    dbc.Row([  # Portfolio and ACWI YTD Total Return (color-coded)
+        dbc.Col(html.Div(id='portfolio-annual-returns-card'), width=6),
+        dbc.Col(html.Div(id='acwi-annual-returns-card'), width=6)
+    ]),
     
     dbc.Row([html.Div([
     dbc.Col(html.Div(id='beta-card'), width=6),
     dbc.Col(html.Div(id='alpha-card'), width=6)
-    ], className='my-card-container')]),
+    ])]),
     
     dbc.Row([  # ACWI Total Return and Std Dev
         dbc.Col(html.Div(id='acwi-total-card'), width=6),
         dbc.Col(html.Div(id='acwi-std-card'), width=6)
-    ], className='my-card-container'),
+    ]),
     
     dbc.Row([  # Portfolio and ACWI YTD Total Return (color-coded)
         dbc.Col(html.Div(id='portfolio-ytd-card'), width=6),
         dbc.Col(html.Div(id='acwi-ytd-card'), width=6)
-    ], className='my-card-container'),
+    ])
     
+    
+    
+    ],
+    className='my-card-container', style={'display': 'flex', 'justifyContent': 'center', 'flexWrap': 'wrap', 'gap': '20px'}),
 
     html.Br(),
     
@@ -530,7 +540,9 @@ def update_selector_options(currency, date_range):
      Output('acwi-ytd-card', 'children'),
      Output('portfolio-table', 'children'),
      Output('alpha-card', 'children'),
-     Output('beta-card', 'children')],
+     Output('beta-card', 'children'),
+     Output('portfolio-annual-returns-card', 'children'),
+     Output('acwi-annual-returns-card', 'children')],
     [Input('currency-selector', 'value'),
      Input('range-selector', 'value')]
 )
@@ -650,6 +662,9 @@ def update_dashboard(currency, date_range):
     portfolio_total = df[df['Symbol'] == 'Top']['CumulativeReturn'].iloc[-1] if not df[df['Symbol'] == 'Top'].empty else 0
     acwi_total = df[df['Symbol'] == 'ACWI']['CumulativeReturn'].iloc[-1] if not df[df['Symbol'] == 'ACWI'].empty else 0
 
+    annual_portfolio_returns = metrics['average_annual_returns'].get('Top', 0)
+    annual_acwi_returns = metrics['average_annual_returns'].get('ACWI', 0)
+
     # YTD returns (always current year)
     portfolio_ytd = ytd_metrics['ytd_returns'].get('Top', 0)
     acwi_ytd = ytd_metrics['ytd_returns'].get('ACWI', 0)
@@ -657,59 +672,75 @@ def update_dashboard(currency, date_range):
     # Create cards
     portfolio_total_card = dbc.Card(
         dbc.CardBody([
-            html.H5("Portfolio Total Return", style={'textAlign':'center'}),
+            html.H5("Strategy Total Return", style={'textAlign':'center'}),
             html.P(f"{portfolio_total:.1%}", className="card-text")
-        ])
+        ]), style={'backgoundColor':'white'}
     )
-    
+
     portfolio_std_card = dbc.Card(
         dbc.CardBody([
-            html.H5("Portfolio Annual Std Dev", style={'textAlign':'center'}),
+            html.H5("Strategy Annual Risk", style={'textAlign':'center'}),
             html.P(f"{portfolio_std:.1%}", className="card-text")
-        ])
+        ]), style={'backgoundColor':'white'}
+    )
+
+    portfolio_annual_returns_card = dbc.Card(
+        dbc.CardBody([
+            html.H5("Strategy Annual Return", style={'textAlign':'center'}),
+            html.P(f"{annual_portfolio_returns:.1%}", className="card-text")
+        ]), style={'backgoundColor':'white'}
+    )
+    
+    acwi_annual_returns_card = dbc.Card(
+        dbc.CardBody([
+            html.H5("ACWI Annual Return", style={'textAlign':'center'}),
+            html.P(f"{annual_acwi_returns:.1%}", className="card-text")
+        ]), style={'backgoundColor':'white'}
     )
     
     acwi_total_card = dbc.Card(
         dbc.CardBody([
             html.H5("ACWI Total Return", style={'textAlign':'center'}),
             html.P(f"{acwi_total:.1%}", className="card-text")
-        ])
+        ]), style={'backgoundColor':'white'}
     )
     
+    
+
     acwi_std_card = dbc.Card(
         dbc.CardBody([
-            html.H5("ACWI Annual Std Dev", style={'textAlign':'center'}),
+            html.H5("ACWI Annual Risk", style={'textAlign':'center'}),
             html.P(f"{acwi_std:.1%}", className="card-text")
-        ])
+        ]), style={'backgoundColor':'white'}
     )
     
     portfolio_ytd_card = dbc.Card(
         dbc.CardBody([
-            html.H5("Portfolio YTD Return", style={'textAlign':'center'}),
+            html.H5("Strategy YTD Return", style={'textAlign':'center'}),
             html.P(f"{portfolio_ytd:.1%}", className="card-text")
-        ]), color="success" if portfolio_ytd >= 0 else "danger"
+        ]), style={'backgoundColor':'white'}
     )
     
     acwi_ytd_card = dbc.Card(
         dbc.CardBody([
             html.H5("ACWI YTD Return", style={'textAlign':'center'}),
             html.P(f"{acwi_ytd:.1%}", className="card-text")
-        ]), color="success" if acwi_ytd >= 0 else "danger"
+        ]), style={'backgoundColor':'white'}
     )
     
     # Risk metrics cards
     beta_card = dbc.Card(
         dbc.CardBody([
-            html.H5("Portfolio Beta", style={'textAlign':'center'}),
+            html.H5("Strategy Beta", style={'textAlign':'center'}),
             html.P(f"{metrics['beta']:.2f}", className="card-text")
-        ])
+        ]), style={'backgoundColor':'white'}
     )
     
     alpha_card = dbc.Card(
         dbc.CardBody([
-            html.H5("Portfolio Alpha", style={'textAlign':'center'}),
+            html.H5("Strategy Alpha", style={'textAlign':'center'}),
             html.P(f"{(1+metrics['alpha'])**12-1:.2%}", className="card-text")
-        ])
+        ]), style={'backgoundColor':'white'}
     )
     
     # Portfolio composition table
@@ -795,7 +826,9 @@ def update_dashboard(currency, date_range):
         acwi_ytd_card,
         table,
         alpha_card,
-        beta_card
+        beta_card,
+        portfolio_annual_returns_card,
+        acwi_annual_returns_card
     )
 
 
