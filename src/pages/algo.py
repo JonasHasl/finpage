@@ -23,6 +23,22 @@ import yfinance as yf
 from sklearn.linear_model import LinearRegression
 from datetime import datetime
 import numpy as np
+
+from dash import DiskcacheManager, CeleryManager
+import diskcache
+
+# Use diskcache for async
+cache = diskcache.Cache("./cache")
+background_callback_manager = DiskcacheManager(cache)
+
+colors = {
+    'background': '#D6E4EA',
+    'text': '#718BA5',
+    'accent': '#004172',
+    'text-white':'white',
+    'content':'#EDF3F4'
+}
+
 #from sqlalchemy import create_engine
 
 # Initialize Dash app
@@ -241,9 +257,16 @@ def calculate_metrics(df, fx_data=None):
 
     return df, metrics, return_col
 
+description = ''' This dashboard visualizes the performance of a stock trading algorithm based on Morningstar fundamental data. The strategy consists of 7 stocks rebalanced quarterly which are selected
+based on a combined alpha score. The combined alpha score is calculated by ranking the stocks in a universe consisting of S&P 500 and Nasdaq 100 constituents. After the stocks are ranked based on each factor, each stock will receive
+a combined alpha score which is based on a weighed sum of these ranks. The stocks with the highest combined alpha score are included in the strategy. The weight on each factor
+are optimized to maximize the Sharpe ratio of the portfolio. The algorithm is designed to be robust and adaptive, with a focus on long-term performance. '''
+
+
 # Updated app layout
 layout = dbc.Container([html.Div(className='beforediv'),
-    dbc.Row(dbc.Col(html.H1("Portfolio Performance Dashboard", style={'textAlign':'center'}))),
+    dbc.Row(dbc.Col(html.H1("Portfolio Performance",className='headerfinvest', style={'textAlign':'center'}))),
+    html.Div(children=[description, html.Hr()], className='normal-text', style={'textAlign':'center', 'font-size':'1,5rem', 'margin-left':'10%', 'margin-right':'10%', 'font-weight':'bold'}),
     
     dbc.Row([
         dbc.Col(dcc.RadioItems(
@@ -253,7 +276,8 @@ layout = dbc.Container([html.Div(className='beforediv'),
                 {'label': 'NOK', 'value': 'NOK'}
             ],
             value='USD',
-            labelStyle={'display': 'inline-block', 'margin-right': '10px'}
+            labelStyle={'display': 'inline-block', 'margin-right': '10px'},
+            style={'textAlign': 'center'}
         ), width=3),
         dbc.Col(dcc.RadioItems(
             id='range-selector',
@@ -262,10 +286,11 @@ layout = dbc.Container([html.Div(className='beforediv'),
                 {'label': 'YTD', 'value': 'ytd'}
             ],
             value='full',
-            labelStyle={'display': 'inline-block', 'margin-right': '10px'}
+            labelStyle={'display': 'inline-block', 'margin-right': '10px'},
+            style={'textAlign': 'center'}
         ), width=3)
-    ]),
-    
+    ],style={'textAlign': 'center'}),
+    html.Br(),
     dbc.Row([  # Graph on top
         dbc.Col(dcc.Graph(id='cumulative-returns-chart'), width=12)
     ]),
@@ -300,6 +325,32 @@ layout = dbc.Container([html.Div(className='beforediv'),
     dbc.Row([  # Portfolio composition table
         dbc.Col(html.Div(id='portfolio-table'), width=12)
     ]),
+    dbc.Row([
+    dbc.Col(
+        dbc.Button(
+            "Show Stocks in Latest Composition Cumulative Returns",
+            id="show-comps-btn",
+            color="primary",
+            className="buttonDefinitions",
+            style={'width': 'auto', 'height': 'auto', 'padding':'20px', 'margin': '10px'}  # Full width button
+        ),
+        width=12
+    )
+        ], style={'textAlign': 'center'}, className='my-button-container'), 
+        dbc.Row([
+    dbc.Col(
+            html.Div(  # Add this wrapper div
+                dcc.Graph(id='component-cumulative-chart'),
+                id="graph-container",
+                style={'display': 'none'}  # Initially hidden
+            ),
+            width=12
+        )
+    ]),
+    html.Br(),
+
+
+
     
     dbc.Row([  # Upload button
         dbc.Col(dcc.Upload(
@@ -311,6 +362,123 @@ layout = dbc.Container([html.Div(className='beforediv'),
 ])
 
 from dash import Input, Output, State
+
+
+@callback(
+    Output('component-cumulative-chart', 'figure'),
+    Output('graph-container', 'style'),  # Controls visibility
+    Input('show-comps-btn', 'n_clicks'),
+    State('range-selector', 'value'),
+    prevent_initial_call=True
+)
+def update_component_cumulative_chart(n_clicks, date_range):
+    if n_clicks is None:
+        raise dash.exceptions.PreventUpdate
+
+    # [Rest of your existing code here...]
+    # Get latest portfolio composition
+    weights_df = pd.read_csv(r"algocomposition.csv")
+    latest_date = weights_df['ValidFrom'].max()
+    symbols_stocks = pd.DataFrame()
+    symbols_stocks = weights_df[weights_df['ValidFrom'] == latest_date]['Symbol'].unique().tolist()
+
+    # Set date range
+    start_date = datetime(datetime.now().year, 1, 1)
+    end_date = datetime.now()
+
+    # Download all symbols at once
+    try:
+        prices_raw = yf.download(
+            symbols_stocks,
+            start=start_date,
+            end=end_date,
+            interval='1d',
+            group_by='ticker'
+        )
+    except Exception as e:
+        print(f"Error downloading data: {e}")
+        return go.Figure()
+
+    # Process prices using your existing pattern
+    cumulative_returns_stocks = {}
+    returns = None
+    print(f'Number of symbols: {len(symbols_stocks)}')
+    for symbol in symbols_stocks:
+        try:
+            closes = prices_raw.xs('Close', level=1, axis=1)[symbol].dropna()
+            if not closes.empty:
+                returns = closes.pct_change().fillna(0)  # Set first return to 0
+                cumulative = (1 + returns).cumprod() - 1
+                cumulative_returns_stocks[symbol] = cumulative
+        except KeyError:
+            print(f"No data for {symbol}")
+            continue
+
+    # Get complete date index from prices_raw
+    # Create a complete business day index
+    date_index = pd.date_range(start=start_date, end=end_date, freq='B')
+
+    # Build DataFrame with forward-filling
+    df_graph = pd.DataFrame(index=date_index)
+    for symbol in symbols_stocks:
+        if symbol in cumulative_returns_stocks:
+            # Forward-fill then back-fill missing values
+            s = cumulative_returns_stocks[symbol].reindex(date_index)
+            df_graph[symbol] = s.ffill()
+
+
+    # Clean up NaNs using your existing pattern
+    #df = df.dropna(how='all')#.ffill().bfill()
+    df_graph.index = pd.to_datetime(df_graph.index)
+
+    # Use your existing color scheme
+    top_color = '#1A5276'      # Deep Navy
+    acwi_color = '#3498DB'     # Bright Blue
+    #color_sequence = [top_color, acwi_color, '#27AE60', '#8E44AD', '#F39C12']
+
+    fig = go.Figure()
+    for _, symbol in enumerate(df_graph.columns):
+        fig.add_trace(
+            go.Scatter(
+                x=df_graph.index,
+                y=df_graph[symbol],
+                mode='lines',
+                name=symbol,
+                line=dict(width=1.5)
+            )
+        )
+
+    fig.update_layout(
+        title='Cumulative YTD Returns (Stock Components)',
+        yaxis=dict(
+            tickformat='.0%',
+            title='Cumulative Return',
+            rangemode='tozero'
+        ),
+        xaxis=dict(
+            title='Date',
+            showgrid=False
+        ),
+        height=400,
+        margin=dict(l=50, r=50, t=60, b=50),
+        hovermode='x unified',
+        plot_bgcolor='white',
+        font=dict(
+            family='Helvetica Neue, Arial, sans-serif',
+            color='#333'
+        ),
+        title_font=dict(
+            size=20,
+            color=top_color
+        )
+    )
+
+
+    return fig, {'display': 'block'}
+
+
+
+
 
 @callback(
     Output('currency-selector', 'options'),
@@ -407,6 +575,7 @@ def update_dashboard(currency, date_range):
 
     # Ensure dates are sorted
     graph_df = graph_df.sort_values(['Symbol', 'Date'])
+    graph_df.loc[graph_df['Symbol'] == 'Top', 'Symbol'] = 'Strategy'
     if date_range != 'ytd':
         print(graph_df.tail(20))
     # Create figure with filtered data
@@ -422,7 +591,7 @@ def update_dashboard(currency, date_range):
                 'y': grp['FilteredCumulative'],
                 'name': security,
                 'mode': 'lines',
-                'line': {'color': top_color if security == 'Top' else acwi_color}
+                'line': {'color': top_color if security == 'Strategy' else acwi_color}
             } for security, grp in graph_df.groupby('Symbol')
         ],
         'layout': {
@@ -441,7 +610,7 @@ def update_dashboard(currency, date_range):
         return group
 
     graph_df = graph_df.groupby('Symbol', group_keys=False).apply(calculate_drawdowns)
-    
+    graph_df.loc[graph_df['Symbol'] == 'Top', 'Symbol'] = 'Strategy'
     # Create drawdown figure
     drawdown_fig = {
     'data': [
@@ -450,7 +619,7 @@ def update_dashboard(currency, date_range):
             'y': grp['Drawdown'],
             'name': security,
             'mode': 'lines',
-            'line': {'color': top_color if security == 'Top' else acwi_color}
+            'line': {'color': top_color if security == 'Strategy' else acwi_color}
         } for security, grp in graph_df.groupby('Symbol')
     ],
     'layout': {
@@ -461,13 +630,13 @@ def update_dashboard(currency, date_range):
             'xref': 'paper',
             'x0': 0,
             'x1': 1,
-            'y0': graph_df[graph_df['Symbol'] == 'Top']['Drawdown'].min(),
-            'y1': graph_df[graph_df['Symbol'] == 'Top']['Drawdown'].min(),
+            'y0': graph_df[graph_df['Symbol'] == 'Strategy']['Drawdown'].min(),
+            'y1': graph_df[graph_df['Symbol'] == 'Strategy']['Drawdown'].min(),
             'line': {
                 'color': max_drawdown_color,
                 'dash': 'dot'
             },
-            'name': 'Max Drawdown (Top)'
+            'name': 'Max Drawdown (Strategy)'
         }]
         }
     }
@@ -552,36 +721,66 @@ def update_dashboard(currency, date_range):
     table = dash.dash_table.DataTable(
         data=latest_composition.to_dict('records'),
         columns=[{'name': col, 'id': col} for col in ['Symbol', 'Weight', 'ValidFrom', 'ValidTo']],
-        style_table={
-            'overflowX': 'auto',
-            'width': '100%',
-            'minWidth': '100%',
-            'borderRadius': '8px',
-            'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.08)',
-            'marginBottom': '1.5rem'
+        editable=False,
+        filter_action="none",
+        # sort_action="native",
+        # sort_mode="multi",
+        column_selectable="single",
+        row_selectable=False,
+        row_deletable=False,
+        style_data={
+            'whiteSpace': 'normal',
+            'height': 'auto',
+            'width': 'auto',
+            'font-family': ['Arial'],
+            'color': 'black',
+            'font-size':'14px',
         },
         style_cell={
+            'padding': '10px',
+            'textAlign': 'right',
+            'backgroundColor': 'white'
+        },
+        style_cell_conditional=[{
+            'if': {
+                'column_id': 'Symbol'
+            },
             'textAlign': 'left',
-            'padding': '8px',
-            'fontFamily': 'Helvetica Neue, Arial, sans-serif',
-            'color': '#333'
-        },
+            'backgroundColor': '#9fa4d8'
+        }],
+
         style_header={
-            'backgroundColor': '#f8f9fa',
+            'backgroundColor': colors['accent'],
             'fontWeight': 'bold',
-            'border': 'none',
-            'fontFamily': 'Helvetica Neue, Arial, sans-serif'
+            'color': 'white',
+            'whiteSpace': 'normal',
+            'border': '2px solid black',
+            'font-family': ['Arial'],
+            'font-size':'15px'
         },
-        style_data={
-            'backgroundColor': '#fff',
-            'border': 'none'
-        },
-        style_data_conditional=[
+        style_data_conditional=[  # style_data.c refers only to data rows
+            # {
+            #    'if': {
+            #        'row_index': 'odd'
+            #    },
+            #    'backgroundColor': 'white'
+            # },
             {
-                'if': {'row_index': 'odd'},
-                'backgroundColor': '#f8f9fa'
+                'if': {
+                    'column_id': 'Symbol'
+                },
+                # 'backgroundColor': 'grey',
+                'fontWeight': 'bold',
             }
-        ]
+
+        ],
+        style_table={
+            'height': 'auto',
+            'overflowX': 'auto',
+            # 'overflowY': 'None',
+            'width': 'auto',
+            # 'font-family': ['Open Sans', 'sans-serif']
+        }
     )
 
 

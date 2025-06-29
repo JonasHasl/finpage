@@ -24,3 +24,4 @@ xlrd
 dash==2.11.1
 plotly==5.16.0
 lxml_html_clean
+scikit-learn

@@ -10,7 +10,7 @@ import os
 app = dash.Dash(__name__, use_pages=True,
                 external_stylesheets=['custom.css', 'missing.css',
     'https://use.fontawesome.com/releases/v5.8.1/css/all.css'],
-                meta_tags=[{'name' :'viewport', 'content':'width=device-width, initial-scale=1, height=device-height'}], suppress_callback_exceptions=True)
+                meta_tags=[{'name' :'viewport', 'content':'width=device-width, initial-scale=1, height=device-height'}], suppress_callback_exceptions=True, prevent_initial_callbacks="initial_duplicate")
 
 
 server = app.server
@@ -294,5 +294,5 @@ def find_free_port():
        return s.getsockname()[1]
 
 if __name__ == '__main__':
-    app.run(debug=False, port=find_free_port())#, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
+    app.run(debug=True, port=find_free_port())#, host='0.0.0.0') # host = 0.0.0.0 when running as a docker container)
 
