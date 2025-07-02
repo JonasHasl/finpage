@@ -459,7 +459,7 @@ def update_component_cumulative_chart(n_clicks, date_range):
         )
 
     fig.update_layout(
-        title='Cumulative YTD Returns (Stock Components)',
+        title='YTD Returns (Latest Stocks in Portfolio)',
         yaxis=dict(
             tickformat='.1%',
             title='Cumulative Return',
