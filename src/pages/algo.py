@@ -619,7 +619,7 @@ def update_dashboard(currency, date_range):
         'layout': {
             'title': 'Cumulative Returns Comparison',
             'yaxis': {
-                'tickformat': '.3%',
+                'tickformat': '.1%',
                 'rangemode': 'tozero'
             }
         }
