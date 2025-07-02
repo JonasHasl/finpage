@@ -483,6 +483,16 @@ def update_component_cumulative_chart(n_clicks, date_range):
         )
     )
 
+    average_return = df_graph.iloc[-1,:].mean()
+
+    fig.add_hline(
+        y=average_return,
+        line_dash="dash",
+        line_color="firebrick",
+        annotation_text=f"Mean Return Stocks in Graph: {average_return:.2%}",
+        annotation_position="top right"
+)
+
 
     return fig, {'display': 'block'}
 
@@ -609,7 +619,7 @@ def update_dashboard(currency, date_range):
         'layout': {
             'title': 'Cumulative Returns Comparison',
             'yaxis': {
-                'tickformat': '.0%',
+                'tickformat': '.3%',
                 'rangemode': 'tozero'
             }
         }
