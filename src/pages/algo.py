@@ -138,14 +138,14 @@ def fetch_data(use_daily_ytd=False):
 def fetch_acwi_returns(start_date, interval='1mo'):
     
     acwi_prices = yf.download(
-        'EUNL.F', 
+        'ACWI', #EUNL.F
         start=start_date,
         end=pd.Timestamp.today(),
         interval=interval
     )['Close']
 
     
-    acwi_returns = acwi_prices['EUNL.F'].pct_change().dropna()
+    acwi_returns = acwi_prices['ACWI'].pct_change().dropna() # EUNL.F
     return pd.DataFrame({
         'Date': acwi_returns.index,
         'Return': acwi_returns.values,
@@ -292,11 +292,11 @@ layout = dbc.Container([html.Div(className='beforediv'),
     ],style={'textAlign': 'center'}),
     html.Br(),
     dbc.Row([  # Graph on top
-        dbc.Col(dcc.Graph(id='cumulative-returns-chart'), width=12)
-    ]),
+        dbc.Col(dcc.Graph(id='cumulative-returns-chart'))
+    ], style={'width': '100vh','margin': 'auto'}),
     dbc.Row([  # New drawdown graph
-        dbc.Col(dcc.Graph(id='drawdown-chart'), width=12)
-    ]),
+        dbc.Col(dcc.Graph(id='drawdown-chart'))
+    ], style={'width': '100vh','margin': 'auto'}),
     html.Br(),
     
     html.Div([
@@ -331,7 +331,8 @@ layout = dbc.Container([html.Div(className='beforediv'),
     className='my-card-container', style={'display': 'flex', 'justifyContent': 'center', 'flexWrap': 'wrap', 'gap': '20px'}),
 
     html.Br(),
-    
+    html.Div(html.H2("Latest Portfolio Composition", className='', style={'textAlign':'center', 'font-size':'2rem', 'font-weight':'bold'})),
+    html.Div(html.P("The portfolio composition is updated quarterly"), style={'textAlign':'center'}),
     dbc.Row([  # Portfolio composition table
         dbc.Col(html.Div(id='portfolio-table'), width=12)
     ]),
@@ -598,8 +599,10 @@ def update_dashboard(currency, date_range):
     # Ensure dates are sorted
     graph_df = graph_df.sort_values(['Symbol', 'Date'])
     graph_df.loc[graph_df['Symbol'] == 'Top', 'Symbol'] = 'Strategy'
+    graph_df_final = graph_df.copy()
+    graph_df_final.loc[graph_df_final['Date'] == min(graph_df_final['Date']), 'FilteredCumulative'] = 0.0
     if date_range != 'ytd':
-        print(graph_df.tail(20))
+        print(f'Final 5 values graph_df: {graph_df_final.tail(5)}')
     # Create figure with filtered data
     top_color = '#1A5276'      # Deep Navy
     acwi_color = '#3498DB'     # Bright Blue
@@ -614,7 +617,7 @@ def update_dashboard(currency, date_range):
                 'name': security,
                 'mode': 'lines',
                 'line': {'color': top_color if security == 'Strategy' else acwi_color}
-            } for security, grp in graph_df.groupby('Symbol')
+            } for security, grp in graph_df_final.groupby('Symbol')
         ],
         'layout': {
             'title': 'Cumulative Returns Comparison',
