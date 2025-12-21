@@ -321,6 +321,7 @@ layout = dbc.Container([html.Div(className='beforediv'), cardeconomy],
 )
 def run_update(n_clicks):
     reload = 'full' if n_clicks is None else 'full'
+    print(reload)
     updateEcon(reload)  # Call the update function
     economy = pd.read_csv('econW_updated.csv', parse_dates=['Date'])
 

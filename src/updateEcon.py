@@ -170,7 +170,17 @@ def calculate_metrics(df):
     df['Trade Balance Rolling 12'] = df['Trade Balance'].pct_change(periods=12).rolling(12, min_periods=1).mean()
     # Economic calculations
     df['Real_Yield'] = df['T10Y2Y'] - (df['CPIUS'].pct_change(12) * 100)
-    df['CPI YoY'] = df['CPIUS'].pct_change(periods=365)
+    def get_yoy_shift(date):
+        try:
+            return date.replace(year=date.year - 1)
+        except ValueError:
+            return date.replace(year=date.year - 1, day=28)
+    
+    df['prev_date'] = df['Date'].apply(get_yoy_shift)
+    cpi_shifted = df[['Date', 'CPIUS']].rename(columns={'Date':'prev_date', 'CPIUS':'CPIUS_prev'})
+    df = df.merge(cpi_shifted, on='prev_date', how='left', suffixes=('', '_prev'))
+    df['CPI YoY'] = (df['CPIUS'] / df['CPIUS_prev'].fillna(method='ffill')) - 1
+    df.drop(['prev_date', 'CPIUS_prev'], axis=1, inplace=True)
     #df.ffill(inplace=True)  # Forward fill to handle NaNs
     return df
 
