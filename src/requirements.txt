@@ -25,3 +25,4 @@ xlrd
 matplotlib
 lxml_html_clean
 scikit-learn
+openpyxl
