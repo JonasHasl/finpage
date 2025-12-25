@@ -1,0 +1,518 @@
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, date
+import dash_bootstrap_components as dbc
+import dash
+from dash import html, dcc, callback, Input, Output
+import yfinance as yf
+import numpy as np
+import os
+
+dash.register_page(__name__, path='/portfolio-daily')
+
+colors = {
+    'background': 'rgb(240,241,245)',
+    'text': 'black',
+    'accent': '#004172',
+    'text-white': 'white',
+    'content': '#EDF3F4',
+    'banner': '#0a213b',
+    'banner2': '#1e3a5a',
+    'border': '#bed6eb',
+    'header': '#7a7a7a'
+}
+
+def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, height=700):
+    """Portfolio vs ACWI benchmark - SINGLE TRACE ENHANCEMENT"""
+    dataframe = pd.DataFrame(dataframe).ffill().fillna(0)
+    
+    # Convert start_date/end_date to date objects consistently
+    start_date = pd.to_datetime(start_date).date()
+    end_date = pd.to_datetime(end_date).date()
+    
+    # Ensure Date column exists and convert to date
+    if 'Date' not in dataframe.columns:
+        dataframe = dataframe.reset_index().rename(columns={'index': 'Date'})
+    
+    dataframe['Date'] = pd.to_datetime(dataframe['Date']).dt.date
+    
+    # Create mask with proper date comparison
+    mask = (dataframe['Date'] >= start_date) & (dataframe['Date'] <= end_date)
+    filtered_df = dataframe.loc[mask].copy()
+    
+    if filtered_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data", showarrow=False, font=dict(size=16))
+        fig.update_layout(height=height)
+        return fig
+    
+    # Create figure
+    fig = go.Figure()
+    
+    n_points = len(filtered_df)
+    marker_sizes = [3] * (n_points - 1) + [8]
+    
+    fig.add_trace(go.Scatter(
+        x=filtered_df['Date'],
+        y=filtered_df['Portfolio_Cumulative_Period'],
+        mode='lines+markers',
+        name='Portfolio',
+        line=dict(color='#2a3f5f', width=4),
+        marker=dict(
+            color=['#2a3f5f'] * (n_points - 1) + ['red'],
+            size=marker_sizes,
+            symbol='circle'
+        ),
+        hovertemplate='<b>Portfolio</b><br>Date: %{x}<br>Return: %{y:.1%}<extra></extra>'
+    ))
+    
+    # ACWI benchmark trace (thinner gray) - NOW PERIOD RESET!
+    fig.add_trace(go.Scatter(
+        x=filtered_df['Date'],
+        y=filtered_df['ACWI_Cumulative_Period'],  # Uses period-specific cumulative
+        mode='lines+markers',
+        name='ACWI (Benchmark)',
+        line=dict(color='#7f8c8d', width=2.5),
+        marker=dict(
+            color='#7f8c8d',
+            size=[3] * n_points,
+            symbol='circle'
+        ),
+        hovertemplate='<b>ACWI</b><br>Date: %{x}<br>Return: %{y:.1%}<extra></extra>'
+    ))
+    
+    # Dynamic y-axis range (both period series)
+    y_min = min(
+        filtered_df['Portfolio_Cumulative_Period'].min(), 
+        filtered_df['ACWI_Cumulative_Period'].min()
+    )
+    y_max = max(
+        filtered_df['Portfolio_Cumulative_Period'].max(), 
+        filtered_df['ACWI_Cumulative_Period'].max()
+    )
+    
+    # Apply economy styling with legend
+    fig.update_layout(
+        title='',#dict(text=f"{title} vs ACWI Benchmark", x=0.5, font=dict(family="Helvetica", size=18)),
+        yaxis_title="Cumulative Return",
+        xaxis_title='Date',
+        font=dict(family="Helvetica", size=15, color=colors['text']),
+        plot_bgcolor='white',
+        paper_bgcolor=colors['background'],
+        yaxis=dict(range=[y_min, y_max]),
+        height=height,
+        margin={'l': 50, 'r': 50, 't': 60, 'b': 50},
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor='gray',
+            borderwidth=1
+        )
+    )
+    
+    fig.update_xaxes(showgrid=True, gridcolor=colors['border'])
+    fig.update_yaxes(showgrid=True, gridcolor=colors['border'], tickformat=".1%")
+    fig.update_layout(uirevision='constant')
+    
+    return fig
+
+
+
+def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
+    """Multi-line stocks graph with economy styling - FIXED hover labels"""
+    if stocks_data.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No active stocks", showarrow=False, font=dict(size=16))
+        fig.update_layout(height=height)
+        return fig
+    
+    # Convert dates consistently
+    start_date = pd.to_datetime(start_date).date()
+    end_date = pd.to_datetime(end_date).date()
+    
+    stocks_data = stocks_data.copy()
+    stocks_data['Date'] = pd.to_datetime(stocks_data['Date']).dt.date
+    
+    mask = (stocks_data['Date'] >= start_date) & (stocks_data['Date'] <= end_date)
+    filtered_stocks = stocks_data.loc[mask].copy()
+    
+    if filtered_stocks.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data", showarrow=False, font=dict(size=16))
+        fig.update_layout(height=height)
+        return fig
+    
+    # Create figure with all symbols
+    fig = go.Figure()
+    
+    # Dynamic colors for each symbol
+    symbols = filtered_stocks['Symbol'].unique()
+    colors_list = ['#2a3f5f', '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
+    
+    for i, symbol in enumerate(symbols):
+        symbol_data = filtered_stocks[filtered_stocks['Symbol'] == symbol]
+        color = colors_list[i % len(colors_list)]
+        
+        # Main line trace
+        
+        
+        # Alternative: Single trace with markers only at end
+        fig.add_trace(go.Scatter(
+            x=symbol_data['Date'],
+            y=symbol_data['Cumulative_Return'],
+            mode='lines+markers',
+            name=symbol,
+            line=dict(color=color, width=2.5),
+            marker=dict(color='red', size=[2]*len(symbol_data[:-1]) + [8], symbol=['circle']*len(symbol_data)),  # Large last marker
+            legendgroup=symbol,
+            hovertemplate=f'<b>{symbol}</b><br>Date: %{{x}}<br>Return: %{{y:.1%}}<extra></extra>'
+        ))
+
+    
+    # Dynamic y-axis range
+    all_returns = filtered_stocks['Cumulative_Return']
+    y_min, y_max = all_returns.min(), all_returns.max()
+    y_buffer = (y_max - y_min) * 0.05
+    y_min -= y_buffer
+    y_max += y_buffer
+    
+    # Apply economy styling
+    fig.update_layout(
+        title=dict(text=title, x=0.5, font=dict(family="Helvetica", size=18)),
+        yaxis_title="Cumulative Return",
+        xaxis_title='Date',
+        font=dict(family="Helvetica", size=15, color=colors['text']),
+        plot_bgcolor='white',
+        paper_bgcolor=colors['background'],
+        yaxis=dict(range=[y_min, y_max]),
+        height=height,
+        margin={'l': 50, 'r': 50, 't': 60, 'b': 50},
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        hovermode='x unified'  # Better hover experience
+    )
+    
+    fig.update_xaxes(showgrid=True, gridcolor=colors['border'])
+    fig.update_yaxes(showgrid=True, gridcolor=colors['border'], tickformat=".1%")
+    fig.update_layout(uirevision='constant')
+    
+    return fig
+
+
+
+
+def load_data_and_calculate_returns():
+    """Use the exact data retrieval script provided - WITH ACWI BENCHMARK (PERIOD RESET)"""
+    composition = pd.read_excel('AlgoComposition.xlsx')
+    composition['ValidFrom'] = pd.to_datetime(composition['ValidFrom'], dayfirst=False)
+    composition['ValidTo'] = pd.to_datetime(composition['ValidTo'], dayfirst=False)
+    min_date = composition['ValidFrom'].min()
+
+    today = date.today()  
+    tickers = list(composition.Symbol.unique())
+    
+    # Download portfolio tickers + ACWI benchmark
+    all_tickers = tickers + ['ACWI']
+    df = yf.download(
+        all_tickers,
+        start=min_date,
+        end=today,
+        interval="1d",
+        auto_adjust=True,
+        threads=True,
+        progress=False
+    )
+
+    # Extract portfolio data (exclude ACWI)
+    portfolio_df_raw = df['Close'].drop(columns=['ACWI'], errors='ignore').stack().reset_index()
+    portfolio_df_raw.columns = ['Date', 'Symbol', 'Close']
+    
+    portfolio_df_raw['Date'] = pd.to_datetime(portfolio_df_raw['Date'])
+    portfolio_df_raw = portfolio_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+    portfolio_df_raw['Return'] = portfolio_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
+
+    # Create active positions (portfolio only)
+    active_positions = []
+    for _, row in composition.iterrows():
+        mask = (
+            (portfolio_df_raw['Date'] >= row['ValidFrom']) & 
+            (portfolio_df_raw['Date'] <= row['ValidTo']) & 
+            (portfolio_df_raw['Symbol'] == row['Symbol'])
+        )
+        active = portfolio_df_raw[mask].copy()
+        active['Weight'] = row.get('Weight', 1.0 / len(composition))
+        active_positions.append(active)
+
+    portfolio_df = pd.concat(active_positions, ignore_index=True)
+    portfolio_df = portfolio_df.sort_values(['Date', 'Symbol']).reset_index(drop=True)
+    
+    # Portfolio returns calculation (unchanged)
+    portfolio_returns_list = []
+    for date_val in sorted(portfolio_df['Date'].unique()):
+        daily_data = portfolio_df[portfolio_df['Date'] == date_val]
+        if not daily_data.empty:
+            daily_portfolio_ret = (daily_data['Return'] * daily_data['Weight']).sum()
+            portfolio_returns_list.append({'Date': date_val, 'Portfolio_Return': daily_portfolio_ret})
+    
+    portfolio_returns = pd.DataFrame(portfolio_returns_list)
+    portfolio_returns['Date'] = pd.to_datetime(portfolio_returns['Date'])
+    portfolio_returns = portfolio_returns.set_index('Date').sort_index()
+    portfolio_returns['Portfolio_Return'] = portfolio_returns['Portfolio_Return'].round(4)
+    portfolio_returns['Portfolio_Cumulative'] = (1 + portfolio_returns['Portfolio_Return']).cumprod() - 1
+    
+    # NEW: ACWI benchmark returns (FULL PERIOD - will be sliced/reset later)
+    acwi_data = df['Close']['ACWI'].loc[portfolio_returns.index]
+    acwi_returns = acwi_data.pct_change().fillna(0)
+    
+    portfolio_returns['ACWI_Return'] = acwi_returns.round(4)
+    
+    return portfolio_returns, portfolio_df, composition
+
+
+
+def get_current_active_stocks(portfolio_df, composition, start_date, end_date):
+    """Safe cumulative returns calculation - FIXED index alignment"""
+    current_date = portfolio_df['Date'].max()
+    active_comps = composition[
+        (composition['ValidFrom'] <= current_date) & 
+        (composition['ValidTo'] >= current_date)
+    ]
+    
+    active_stocks_data = portfolio_df[
+        (portfolio_df['Date'] >= start_date) & 
+        (portfolio_df['Date'] <= end_date) &
+        (portfolio_df['Symbol'].isin(active_comps['Symbol']))
+    ].copy()
+    
+    if active_stocks_data.empty:
+        return active_stocks_data, pd.DataFrame()
+    
+    # Sort once
+    active_stocks_data = active_stocks_data.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+    
+    # Calculate cumulative returns for each symbol
+    for symbol in active_stocks_data['Symbol'].unique():
+        mask = active_stocks_data['Symbol'] == symbol
+        symbol_indices = active_stocks_data[mask].index
+        
+        symbol_returns = active_stocks_data.loc[symbol_indices, 'Return'].values
+        symbol_cumulative = (1 + symbol_returns).cumprod() - 1
+        
+        active_stocks_data.loc[symbol_indices, 'Cumulative_Return'] = symbol_cumulative
+    
+    latest_stocks = active_stocks_data.groupby('Symbol')['Cumulative_Return'].last().reset_index()
+    
+    return active_stocks_data, latest_stocks
+
+
+# [Keep your existing load_data_and_calculate_returns() and get_current_active_stocks() functions unchanged]
+
+description = ''''''
+
+layout = dbc.Container([
+    html.Div(className='beforediv'),
+    dbc.Row(dbc.Col(html.H1("Optimized Factor Portfolio", className='headerfinvest', style={'textAlign': 'center'}))),
+    html.Div(children=[description, html.Hr()], className='normal-text', style={'textAlign': 'center', 'font-size': '1.2rem', 'margin': '0 10%', 'fontWeight': 'bold'}),
+    
+    dbc.Row([
+        dbc.Col(dcc.RadioItems(
+            id='period-selector',
+            options=[
+                {'label': 'YTD Returns', 'value': 'ytd'},
+                {'label': 'MTD Returns', 'value': 'mtd'},
+                {'label': 'Full Range', 'value': 'full'}
+            ],
+            value='ytd',
+            labelStyle={'display': 'inline-block'}
+        ), width=4)
+    ], style={'textAlign': 'center'}),
+    
+    html.Br(),
+    dbc.Row([
+        dbc.Col(dcc.Graph(id='portfolio-cumulative-chart'), width=12)
+    ]),
+    
+    dbc.Row([
+        dbc.Col(dcc.Graph(id='stocks-cumulative-chart'), width=12)
+    ]),
+    
+    html.Div([
+        dbc.Row([
+            dbc.Col(html.Div(id='portfolio-return-card'), width=6),
+            dbc.Col(html.Div(id='volatility-card'), width=6)
+        ]),
+        dbc.Row([
+            dbc.Col(html.Div(id='current-composition-table'), width=12)
+        ])
+    ], className='my-card-container', style={'display': 'flex', 'justifyContent': 'center', 'flexWrap': 'wrap', 'gap': '20px'}),
+    
+    html.Br(),
+])
+
+@callback(
+    [Output('portfolio-cumulative-chart', 'figure'),
+     Output('stocks-cumulative-chart', 'figure'),
+     Output('portfolio-return-card', 'children'),
+     Output('volatility-card', 'children'),
+     Output('current-composition-table', 'children')],
+    [Input('period-selector', 'value')]
+)
+def update_dashboard(period):
+    portfolio_returns, portfolio_df, composition = load_data_and_calculate_returns()
+    
+    if portfolio_returns.empty:
+        empty_fig = go.Figure().add_annotation(
+            text="No data available - check AlgoComposition.xlsx", 
+            showarrow=False, font=dict(size=16)
+        )
+        empty_fig.update_layout(height=400)
+        no_data_card = dbc.Card(dbc.CardBody([html.H5("No data"), html.P("Check file format and dates")]))
+        return (empty_fig, empty_fig, no_data_card, no_data_card, no_data_card)
+    
+    today = portfolio_returns.index.max()
+    
+    if period == 'ytd':
+        start_date = pd.Timestamp(today.year, 1, 1)
+    elif period == 'mtd':
+        start_date = today.replace(day=1)
+    else:  # full
+        start_date = portfolio_returns.index.min()
+    
+    # In update_dashboard function, after filtering period_returns:
+    period_returns = portfolio_returns[
+        (portfolio_returns.index >= start_date) & 
+        (portfolio_returns.index <= today)
+    ].copy()
+
+    # Create period-specific cumulative returns (both reset to 0% at period start!)
+    period_returns['Portfolio_Cumulative_Period'] = (1 + period_returns['Portfolio_Return']).cumprod() - 1
+    period_returns['ACWI_Cumulative_Period'] = (1 + period_returns['ACWI_Return']).cumprod() - 1
+
+    period_returns.reset_index(inplace=True)  # For create_graph compatibility
+
+    
+    # In update_dashboard function, replace the chart creation lines with:
+    fig_portfolio = create_portfolio_graph(
+        title=f'{period.upper()} Portfolio Cumulative Return',
+        dataframe=period_returns,
+        y_column='Portfolio_Cumulative_Period',
+        start_date=start_date.date(),  # Ensure date object
+        end_date=today.date()          # Ensure date object
+    )
+
+    stocks_data, latest_stocks = get_current_active_stocks(portfolio_df, composition, start_date, today)
+    fig_stocks = create_stocks_graph(
+        title=f'{period.upper()} Current Active Stocks Cumulative Returns',
+        stocks_data=stocks_data,
+        start_date=start_date.date(),  # Ensure date object
+        end_date=today.date()          # Ensure date object
+    )
+
+    # Cards (unchanged)
+    total_return = period_returns['Portfolio_Cumulative_Period'].iloc[-1]
+    volatility = period_returns['Portfolio_Return'].std() * np.sqrt(252)
+    
+    def create_card(title, value, is_percent=True):
+        fmt = f"{value:.1%}" if is_percent else f"{value:.3f}"
+        return dbc.Card(
+            dbc.CardBody([
+                html.H5(title, style={'textAlign': 'center', 'color': colors['accent']}),
+                html.P(fmt, className="card-text", style={'fontSize': '1.8rem', 'fontWeight': 'bold'})
+            ]), 
+            style={'backgroundColor': 'white', 'boxShadow': '0 4px 8px rgba(0,0,0,0.1)'}
+        )
+    
+    portfolio_card = create_card(f"{period.upper()} Total Return", total_return)
+    vol_card = create_card("Annualized Volatility", volatility)
+    
+    # Table (unchanged)
+    # Table - BEAUTIFULLY STYLED
+    current_date = today
+    current_comps = composition[(composition['ValidFrom'] <= current_date) & (composition['ValidTo'] >= current_date)].copy()
+
+    if not current_comps.empty:
+        # Format dates to short format (YYYY-MM-DD)
+        current_comps['ValidFrom'] = pd.to_datetime(current_comps['ValidFrom']).dt.strftime('%Y-%m-%d')
+        current_comps['ValidTo'] = pd.to_datetime(current_comps['ValidTo']).dt.strftime('%Y-%m-%d')
+        current_comps['Weight_Pct'] = (pd.to_numeric(current_comps['Weight'], errors='coerce') * 100).round(1)
+        current_comps_display = current_comps[['Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
+        
+        table = dash.dash_table.DataTable(
+            data=current_comps_display.to_dict('records'),
+            columns=[
+                {'name': 'Symbol', 'id': 'Symbol'},
+                {'name': 'Weight (%)', 'id': 'Weight_Pct'},
+                {'name': 'Valid From', 'id': 'ValidFrom'},
+                {'name': 'Valid To', 'id': 'ValidTo'}
+            ],
+            style_cell={
+                'textAlign': 'left',
+                'padding': '15px',
+                'fontFamily': 'Arial, sans-serif',
+                'fontSize': '14px',
+                'color': colors['text'],
+                'backgroundColor': 'white',
+                'border': '1px solid #e1e5e9'
+            },
+            style_data={
+                'backgroundColor': 'white',
+                'border': '1px solid #e1e5e9'
+            },
+            style_data_conditional=[
+                {
+                    'if': {'column_id': 'Symbol'},
+                    'fontWeight': 'bold',
+                    'backgroundColor': '#f8f9fa',
+                    'textAlign': 'left',
+                    'fontFamily': 'Arial, sans-serif',
+                    'fontSize': '15px'
+                },
+                {
+                    'if': {'row_index': 'odd'},
+                    'backgroundColor': '#f8f9fa'
+                }
+            ],
+            style_header={
+                'backgroundColor': colors['accent'],
+                'color': 'white',
+                'fontWeight': 'bold',
+                'fontFamily': 'Arial, sans-serif',
+                'fontSize': '15px',
+                'border': '1px solid #004172',
+                'textAlign': 'center'
+            },
+            style_table={
+                'overflowX': 'auto',
+                'borderRadius': '12px',
+                'boxShadow': '0 4px 12px rgba(0,0,0,0.1)',
+                'border': '2px solid #e1e5e9',
+                'margin': '20px 0'
+            },
+            sort_action='native',
+            page_size=10
+        )
+    else:
+        table = html.Div(
+            "No current composition", 
+            style={
+                'textAlign': 'center', 
+                'padding': '40px',
+                'fontFamily': 'Arial, sans-serif',
+                'fontSize': '16px',
+                'color': colors['text']
+            }
+        )
+
+    
+    return fig_portfolio, fig_stocks, portfolio_card, vol_card, table

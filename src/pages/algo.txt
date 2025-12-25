@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 from fredapi import Fred
 import updateEcon
 
-dash.register_page(__name__, path='/algo')
+#dash.register_page(__name__, path='/algo')
 
 
 import dash
@@ -52,7 +52,7 @@ colors = {
 # static_data = pd.read_csv('historical_data.csv', parse_dates=['Date'])
 # static_data = static_data[static_data['Date'] <= '2024-12-31']
 
-def calculate_dynamic_returns(weights_df, interval='1mo', start_date=None):
+def calculate_dynamic_returns(weights_df, interval='1d', start_date=None):
     symbols = weights_df['Symbol'].unique().tolist()
     dynamic_returns = []
 

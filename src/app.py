@@ -5,7 +5,7 @@ import re
 from dash.dependencies import Input, Output, State
 import os
 
-#os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 app = dash.Dash(__name__, use_pages=True,
                 external_stylesheets=['custom.css', 'missing.css',
@@ -80,7 +80,7 @@ header_banner = dbc.Navbar(
                                                             'textAlign':'right'
 
                                                         },), className='menuitemtop'),
-                dbc.NavItem(dbc.NavLink("Algorithm", href="/algo", style={
+                dbc.NavItem(dbc.NavLink("Algorithm", href="/portfolio-daily", style={
                                                             "border": "none",
                                                             'font-size':'24px',
                                                             "color": '#7a7a7a',
