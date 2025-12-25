@@ -15,11 +15,11 @@ layout = html.Div([
     #html.Img(src=('assets/littlethingbefore.jpg'),  style={'border-radius': '100px', 'width': '6%', 'margin':'15px'})], className='parent-row'),
 
     html.Div([
-                html.Div([
-                    html.Div([html.A(html.Span("Finvest"), style={'display':'inline-block', 'font-size':'2rem','text-align':'center'}, className='headers', href="/Finvest")], style={'text-align':'center'}),
-                    dcc.Markdown("Create your own investment strategy based on your preferences")
+                # html.Div([
+                #     html.Div([html.A(html.Span("Finvest"), style={'display':'inline-block', 'font-size':'2rem','text-align':'center'}, className='headers', href="/Finvest")], style={'text-align':'center'}),
+                #     dcc.Markdown("Create your own investment strategy based on your preferences")
 
-                ], className='page-intro', style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
+                # ], className='page-intro', style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
 
                 html.Div([
                     html.Div([html.A(html.Span("US Economy"), style={'display':'inline-block', 'font-size':'2rem','text-align':'center'}, className='headers', href="/economy")], style={'text-align':'center'}),
