@@ -84,12 +84,12 @@ def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, hei
     
     # Dynamic y-axis range (both period series)
     y_min = min(
-        filtered_df['Portfolio_Cumulative_Period'].min(), 
-        filtered_df['ACWI_Cumulative_Period'].min()
+        filtered_df['Portfolio_Cumulative_Period'].min()-0.05, 
+        filtered_df['ACWI_Cumulative_Period'].min()-0.05
     )
     y_max = max(
-        filtered_df['Portfolio_Cumulative_Period'].max(), 
-        filtered_df['ACWI_Cumulative_Period'].max()
+        filtered_df['Portfolio_Cumulative_Period'].max()+0.1, 
+        filtered_df['ACWI_Cumulative_Period'].max()+0.1
     )
     
     # Apply economy styling with legend
@@ -242,6 +242,9 @@ def load_data_and_calculate_returns():
     portfolio_df_raw = portfolio_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
     portfolio_df_raw['Return'] = portfolio_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
 
+    names = composition[['Symbol', 'Company']].drop_duplicates()
+
+    portfolio_df_raw = portfolio_df_raw.merge(names, on='Symbol')
     # Create active positions (portfolio only)
     active_positions = []
     for _, row in composition.iterrows():
@@ -446,11 +449,12 @@ def update_dashboard(period):
         current_comps['ValidFrom'] = pd.to_datetime(current_comps['ValidFrom']).dt.strftime('%Y-%m-%d')
         current_comps['ValidTo'] = pd.to_datetime(current_comps['ValidTo']).dt.strftime('%Y-%m-%d')
         current_comps['Weight_Pct'] = (pd.to_numeric(current_comps['Weight'], errors='coerce') * 100).round(1)
-        current_comps_display = current_comps[['Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
+        current_comps_display = current_comps[['Company','Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
         
         table = dash.dash_table.DataTable(
             data=current_comps_display.to_dict('records'),
             columns=[
+                {'name': 'Company', 'id': 'Company'},
                 {'name': 'Symbol', 'id': 'Symbol'},
                 {'name': 'Weight (%)', 'id': 'Weight_Pct'},
                 {'name': 'Valid From', 'id': 'ValidFrom'},
