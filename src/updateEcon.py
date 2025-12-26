@@ -72,7 +72,7 @@ def fetch_shiller_pe():
 
 
 # --- MAIN WORKFLOW ---
-def updateEcon(reload='full', start_full='1998-12-26'):
+def updateEcon(reload='incremental', start_full='1998-12-26'):
     # 1. Load existing data
     print("Reload mode:", reload)
     oldecon = load_existing_data(oldecon_path)

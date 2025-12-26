@@ -52,7 +52,7 @@ df_with_econ = pd.DataFrame()
 def load_data():
     global economy, df_with_econ, latestdate, firstdate
 
-    updateEcon.updateEcon(reload='full') 
+    updateEcon.updateEcon(reload='incremental') 
     # 2. Reload the updated CSV
     economy = load_economy_data()
     #economy['InflationExp'] = economy['InflationExp'] / 100

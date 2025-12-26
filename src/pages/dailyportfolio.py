@@ -9,7 +9,9 @@ import yfinance as yf
 import numpy as np
 import os
 
+
 dash.register_page(__name__, path='/portfolio-daily')
+
 
 colors = {
     'background': 'rgb(240,241,245)',
@@ -22,6 +24,7 @@ colors = {
     'border': '#bed6eb',
     'header': '#7a7a7a'
 }
+
 
 def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, height=700):
     """Portfolio vs ACWI benchmark - SINGLE TRACE ENHANCEMENT"""
@@ -124,6 +127,7 @@ def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, hei
 
 
 
+
 def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
     """Multi-line stocks graph with economy styling - FIXED hover labels"""
     if stocks_data.empty:
@@ -160,9 +164,6 @@ def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
         color = colors_list[i % len(colors_list)]
         
         # Main line trace
-        
-        
-        # Alternative: Single trace with markers only at end
         fig.add_trace(go.Scatter(
             x=symbol_data['Date'],
             y=symbol_data['Cumulative_Return'],
@@ -174,7 +175,6 @@ def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
             hovertemplate=f'<b>{symbol}</b><br>Date: %{{x}}<br>Return: %{{y:.1%}}<extra></extra>'
         ))
 
-    
     # Dynamic y-axis range
     all_returns = filtered_stocks['Cumulative_Return']
     y_min, y_max = all_returns.min(), all_returns.max()
@@ -212,8 +212,9 @@ def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
 
 
 
-def load_data_and_calculate_returns():
-    """Use the exact data retrieval script provided - WITH ACWI BENCHMARK (PERIOD RESET)"""
+
+def load_data_and_calculate_returns(currency='USD'):
+    """Use the exact data retrieval script provided - WITH ACWI BENCHMARK (PERIOD RESET) AND FX CONVERSION"""
     composition = pd.read_excel('AlgoComposition.xlsx')
     composition['ValidFrom'] = pd.to_datetime(composition['ValidFrom'], dayfirst=False)
     composition['ValidTo'] = pd.to_datetime(composition['ValidTo'], dayfirst=False)
@@ -222,8 +223,11 @@ def load_data_and_calculate_returns():
     today = date.today()  
     tickers = list(composition.Symbol.unique())
     
-    # Download portfolio tickers + ACWI benchmark
+    # Download portfolio tickers + ACWI benchmark + FX if needed
     all_tickers = tickers + ['ACWI']
+    if currency == 'NOK':
+        all_tickers += ['NOK=X']
+    
     df = yf.download(
         all_tickers,
         start=min_date,
@@ -234,8 +238,10 @@ def load_data_and_calculate_returns():
         progress=False
     )
 
-    # Extract portfolio data (exclude ACWI)
-    portfolio_df_raw = df['Close'].drop(columns=['ACWI'], errors='ignore').stack().reset_index()
+    # Extract portfolio data (exclude ACWI and FX)
+    fx_ticker = 'NOK=X' if currency == 'NOK' else None
+    portfolio_cols = [col for col in df['Close'].columns if col not in ['ACWI', fx_ticker]]
+    portfolio_df_raw = df['Close'][portfolio_cols].stack().reset_index()
     portfolio_df_raw.columns = ['Date', 'Symbol', 'Close']
     
     portfolio_df_raw['Date'] = pd.to_datetime(portfolio_df_raw['Date'])
@@ -260,7 +266,7 @@ def load_data_and_calculate_returns():
     portfolio_df = pd.concat(active_positions, ignore_index=True)
     portfolio_df = portfolio_df.sort_values(['Date', 'Symbol']).reset_index(drop=True)
     
-    # Portfolio returns calculation (unchanged)
+    # Portfolio returns calculation
     portfolio_returns_list = []
     for date_val in sorted(portfolio_df['Date'].unique()):
         daily_data = portfolio_df[portfolio_df['Date'] == date_val]
@@ -272,15 +278,40 @@ def load_data_and_calculate_returns():
     portfolio_returns['Date'] = pd.to_datetime(portfolio_returns['Date'])
     portfolio_returns = portfolio_returns.set_index('Date').sort_index()
     portfolio_returns['Portfolio_Return'] = portfolio_returns['Portfolio_Return'].round(4)
-    portfolio_returns['Portfolio_Cumulative'] = (1 + portfolio_returns['Portfolio_Return']).cumprod() - 1
     
-    # NEW: ACWI benchmark returns (FULL PERIOD - will be sliced/reset later)
+    # ACWI benchmark returns
     acwi_data = df['Close']['ACWI'].loc[portfolio_returns.index]
     acwi_returns = acwi_data.pct_change().fillna(0)
     
+    # Apply FX conversion if needed
+    if currency == 'NOK' and 'NOK=X' in df['Close'].columns:
+        
+        usd_nok = df['Close']['NOK=X'].loc[portfolio_returns.index].ffill()
+        #print(usd_nok)
+        fx_returns = usd_nok.pct_change().fillna(0)
+        
+        # Convert portfolio returns: portfolio_return_NOK = portfolio_return_USD * fx_return
+        portfolio_returns['Portfolio_Return'] += fx_returns
+        acwi_returns += fx_returns
+        
+        # FIXED: Convert INDIVIDUAL STOCK PRICES to NOK, then recalculate returns
+        usd_nok_daily = usd_nok.reindex(portfolio_df['Date']).ffill()
+        portfolio_df = portfolio_df.merge(
+            usd_nok_daily.reset_index().rename(columns={'index': 'Date', usd_nok_daily.name: 'USD_NOK'}),
+            on='Date', how='left'
+        )
+        portfolio_df['USD_NOK'] = portfolio_df['USD_NOK'].ffill()
+        
+        # Convert prices to NOK and recalculate returns from NOK prices
+        portfolio_df['Close_NOK'] = portfolio_df['Close'] * portfolio_df['USD_NOK']
+        portfolio_df['Return'] = portfolio_df.groupby('Symbol')['Close_NOK'].pct_change().fillna(0)
+    
     portfolio_returns['ACWI_Return'] = acwi_returns.round(4)
+    portfolio_returns['Portfolio_Cumulative'] = (1 + portfolio_returns['Portfolio_Return']).cumprod() - 1
     
     return portfolio_returns, portfolio_df, composition
+
+
 
 
 
@@ -319,9 +350,9 @@ def get_current_active_stocks(portfolio_df, composition, start_date, end_date):
     return active_stocks_data, latest_stocks
 
 
-# [Keep your existing load_data_and_calculate_returns() and get_current_active_stocks() functions unchanged]
 
 description = ''''''
+
 
 layout = dbc.Container([
     html.Div(className='beforediv'),
@@ -332,11 +363,25 @@ layout = dbc.Container([
         dbc.Col(dcc.RadioItems(
             id='period-selector',
             options=[
-                {'label': 'YTD Returns', 'value': 'ytd'},
-                {'label': 'MTD Returns', 'value': 'mtd'},
-                {'label': 'Full Range', 'value': 'full'}
+                {'label': 'YTD', 'value': 'ytd'},
+                {'label': 'MTD', 'value': 'mtd'},
+                {'label': 'From Start', 'value': 'full'}
             ],
             value='ytd',
+            labelStyle={'display': 'inline-block'}
+        ), width=4)
+    ], style={'textAlign': 'center'}),
+    
+    # NEW: Currency selector
+    html.Br(),
+    dbc.Row([
+        dbc.Col(dcc.RadioItems(
+            id='currency-selector',
+            options=[
+                {'label': 'USD Returns', 'value': 'USD'},
+                {'label': 'NOK Returns', 'value': 'NOK'}
+            ],
+            value='USD',
             labelStyle={'display': 'inline-block'}
         ), width=4)
     ], style={'textAlign': 'center'}),
@@ -363,16 +408,18 @@ layout = dbc.Container([
     html.Br(),
 ])
 
+
 @callback(
     [Output('portfolio-cumulative-chart', 'figure'),
      Output('stocks-cumulative-chart', 'figure'),
      Output('portfolio-return-card', 'children'),
      Output('volatility-card', 'children'),
      Output('current-composition-table', 'children')],
-    [Input('period-selector', 'value')]
+    [Input('period-selector', 'value'),
+     Input('currency-selector', 'value')]
 )
-def update_dashboard(period):
-    portfolio_returns, portfolio_df, composition = load_data_and_calculate_returns()
+def update_dashboard(period, currency):
+    portfolio_returns, portfolio_df, composition = load_data_and_calculate_returns(currency)
     
     if portfolio_returns.empty:
         empty_fig = go.Figure().add_annotation(
@@ -403,23 +450,22 @@ def update_dashboard(period):
     period_returns['ACWI_Cumulative_Period'] = (1 + period_returns['ACWI_Return']).cumprod() - 1
 
     period_returns.reset_index(inplace=True)  # For create_graph compatibility
-
     
-    # In update_dashboard function, replace the chart creation lines with:
+    # Create charts
     fig_portfolio = create_portfolio_graph(
-        title=f'{period.upper()} Portfolio Cumulative Return',
+        title=f'{period.upper()} Portfolio Cumulative Return ({currency})',
         dataframe=period_returns,
         y_column='Portfolio_Cumulative_Period',
-        start_date=start_date.date(),  # Ensure date object
-        end_date=today.date()          # Ensure date object
+        start_date=start_date.date(),
+        end_date=today.date()
     )
 
     stocks_data, latest_stocks = get_current_active_stocks(portfolio_df, composition, start_date, today)
     fig_stocks = create_stocks_graph(
-        title=f'{period.upper()} Current Active Stocks Cumulative Returns',
+        title=f'{period.upper()} Current Active Stocks Cumulative Returns ({currency})',
         stocks_data=stocks_data,
-        start_date=start_date.date(),  # Ensure date object
-        end_date=today.date()          # Ensure date object
+        start_date=start_date.date(),
+        end_date=today.date()
     )
 
     # Cards (unchanged)
@@ -430,7 +476,7 @@ def update_dashboard(period):
         fmt = f"{value:.1%}" if is_percent else f"{value:.3f}"
         return dbc.Card(
             dbc.CardBody([
-                html.H5(title, style={'textAlign': 'center', 'color': colors['accent']}),
+                html.H5(f"{title} ({currency})", style={'textAlign': 'center', 'color': colors['accent']}),
                 html.P(fmt, className="card-text", style={'fontSize': '1.8rem', 'fontWeight': 'bold'})
             ]), 
             style={'backgroundColor': 'white', 'boxShadow': '0 4px 8px rgba(0,0,0,0.1)'}
@@ -440,7 +486,6 @@ def update_dashboard(period):
     vol_card = create_card("Annualized Volatility", volatility)
     
     # Table (unchanged)
-    # Table - BEAUTIFULLY STYLED
     current_date = today
     current_comps = composition[(composition['ValidFrom'] <= current_date) & (composition['ValidTo'] >= current_date)].copy()
 
@@ -518,5 +563,4 @@ def update_dashboard(period):
             }
         )
 
-    
     return fig_portfolio, fig_stocks, portfolio_card, vol_card, table
