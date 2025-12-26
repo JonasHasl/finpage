@@ -462,7 +462,7 @@ def update_dashboard(period, currency):
 
     stocks_data, latest_stocks = get_current_active_stocks(portfolio_df, composition, start_date, today)
     fig_stocks = create_stocks_graph(
-        title=f'{period.upper()} Current Active Stocks Cumulative Returns ({currency})',
+        title=f'',#{period.upper()} Current Active Stocks Cumulative Returns ({currency})',
         stocks_data=stocks_data,
         start_date=start_date.date(),
         end_date=today.date()
