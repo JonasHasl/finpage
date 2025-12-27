@@ -506,17 +506,31 @@ def update_dashboard(composition_sheet, period, currency):
         current_comps['ValidFrom'] = pd.to_datetime(current_comps['ValidFrom']).dt.strftime('%Y-%m-%d')
         current_comps['ValidTo'] = pd.to_datetime(current_comps['ValidTo']).dt.strftime('%Y-%m-%d')
         current_comps['Weight_Pct'] = (pd.to_numeric(current_comps['Weight'], errors='coerce') * 100).round(1)
-        current_comps_display = current_comps[['Company','Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
         
+
+        current_comps_display = current_comps[['Company','Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
+        # Add Finviz hyperlinks to Company column
+        current_comps_display['Company'] = [
+            f'[{row["Company"]}](https://www.marketwatch.com/investing/stock/{row["Symbol"].lower()} "target=_blank")'
+            for _, row in current_comps_display.iterrows()
+        ]
+
+
         table = dash.dash_table.DataTable(
             data=current_comps_display.to_dict('records'),
             columns=[
-                {'name': 'Company', 'id': 'Company'},
+                {
+                    'name': 'Company', 
+                    'id': 'Company',
+                    'presentation': 'markdown',  # REQUIRED
+                    'type': 'text'
+                },
                 {'name': 'Symbol', 'id': 'Symbol'},
                 {'name': 'Weight (%)', 'id': 'Weight_Pct'},
                 {'name': 'Valid From', 'id': 'ValidFrom'},
                 {'name': 'Valid To', 'id': 'ValidTo'}
             ],
+            markdown_options={"html": True},  # REQUIRED
             style_cell={
                 'textAlign': 'left',
                 'padding': '15px',
