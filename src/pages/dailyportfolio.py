@@ -576,6 +576,8 @@ def update_dashboard(composition_sheet, period, currency):
                 'margin': '20px 0'
             },
             sort_action='native',
+            row_selectable=False,
+            cell_selectable=False,
             page_size=10
         )
     else:
