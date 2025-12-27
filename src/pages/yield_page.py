@@ -174,7 +174,7 @@ def serve_layout():
     yield_table_header = html.Div(f"Yields as of {today.date()}", style={'fontWeight': 'bold', 'marginBottom': '10px', 'textAlign':'center'})
     
     tab1_content = html.Div([
-        html.H1("Historical US Yield Curve", style={'textAlign':'center'}),
+        html.H1("US Bond Market Data", style={'textAlign':'center'}),
         dbc.Card(
             dbc.CardBody(
                 html.Div([
@@ -201,7 +201,7 @@ def serve_layout():
     ])
     
     norwegian_yield_curve_layout = html.Div([
-        html.H1("Historical Norwegian Yield Curve", style={'textAlign':'center'}),
+        html.H1("Norwegian Bond Market Data", style={'textAlign':'center'}),
         dbc.Card(
             dbc.CardBody(
                 html.Div([

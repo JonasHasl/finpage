@@ -28,8 +28,8 @@ layout = html.Div([
                 ], className='page-intro', style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
 
                 html.Div([
-                    html.Div([html.A([html.Span("Yield Curves")], style={'display':'inline-block', 'font-size':'2rem', 'width':'75%'}, className='headers', href="/yield_curves"),], style={'text-align':'center'}) ,
-                    dcc.Markdown("Historical yield curves of US and Norwegian government bonds")
+                    html.Div([html.A([html.Span("Fixed Income Data")], style={'display':'inline-block', 'font-size':'2rem', 'width':'75%'}, className='headers', href="/yield_curves"),], style={'text-align':'center'}) ,
+                    dcc.Markdown("US and Norwegian Government Bond data")
                 ], className='page-intro',
                 style={'background-color': '#F9F9F9', 'border-radius': '8px', 'padding': '10px', 'box-shadow': '0px 4px 6px rgba(0, 0, 0, 0.1)'}),
 
