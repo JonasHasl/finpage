@@ -9,9 +9,7 @@ import yfinance as yf
 import numpy as np
 import os
 
-
 dash.register_page(__name__, path='/portfolio-daily')
-
 
 colors = {
     'background': 'rgb(240,241,245)',
@@ -25,6 +23,9 @@ colors = {
     'header': '#7a7a7a'
 }
 
+# Dynamic descriptions
+description_2015 = '''The following algorithm is fitted for the period 2015-2024 to optimize Sharpe Ratio in a stock selection algorithm based on fundamental factors retrieved from Morningstar.'''
+description_2020 = '''The following algorithm is fitted for the period 2020-2024 to optimize Sharpe Ratio in a stock selection algorithm based on fundamental factors retrieved from Morningstar.'''
 
 def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, height=700):
     """Portfolio vs ACWI benchmark - SINGLE TRACE ENHANCEMENT"""
@@ -125,9 +126,6 @@ def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, hei
     
     return fig
 
-
-
-
 def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
     """Multi-line stocks graph with economy styling - FIXED hover labels"""
     if stocks_data.empty:
@@ -209,13 +207,10 @@ def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
     
     return fig
 
-
-
-
-
-def load_data_and_calculate_returns(currency='USD'):
+def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
     """Use the exact data retrieval script provided - WITH ACWI BENCHMARK (PERIOD RESET) AND FX CONVERSION"""
-    composition = pd.read_excel('AlgoComposition.xlsx')
+    # Load from specific sheet based on dropdown selection
+    composition = pd.read_excel('AlgoComposition.xlsx', sheet_name=composition_sheet)
     composition['ValidFrom'] = pd.to_datetime(composition['ValidFrom'], dayfirst=False)
     composition['ValidTo'] = pd.to_datetime(composition['ValidTo'], dayfirst=False)
     min_date = composition['ValidFrom'].min()
@@ -311,10 +306,6 @@ def load_data_and_calculate_returns(currency='USD'):
     
     return portfolio_returns, portfolio_df, composition
 
-
-
-
-
 def get_current_active_stocks(portfolio_df, composition, start_date, end_date):
     """Safe cumulative returns calculation - FIXED index alignment"""
     current_date = portfolio_df['Date'].max()
@@ -349,15 +340,36 @@ def get_current_active_stocks(portfolio_df, composition, start_date, end_date):
     
     return active_stocks_data, latest_stocks
 
-
-
-description = ''''''
-
+# Dynamic description callback
+@callback(
+    Output('dynamic-description', 'children'),
+    Input('composition-selector', 'value')
+)
+def update_description(sheet):
+    if sheet == '2015':
+        return [description_2015, html.Hr()]
+    else:
+        return [description_2020, html.Hr()]
 
 layout = dbc.Container([
     html.Div(className='beforediv'),
     dbc.Row(dbc.Col(html.H1("Optimized Factor Portfolio", className='headerfinvest', style={'textAlign': 'center'}))),
-    html.Div(children=[description, html.Hr()], className='normal-text', style={'textAlign': 'center', 'font-size': '1.2rem', 'margin': '0 10%', 'fontWeight': 'bold'}),
+    
+    # NEW: Dynamic description
+    html.Div(id='dynamic-description', className='normal-text', style={'textAlign': 'center', 'font-size': '1.2rem', 'margin': '0 10%', 'fontWeight': 'bold'}),
+    
+    # NEW: Composition dropdown
+    dbc.Row([
+        dbc.Col(dcc.Dropdown(
+            id='composition-selector',
+            options=[
+                {'label': 'Fitted 2015-2024', 'value': '2015'},
+                {'label': 'Fitted 2020-2024', 'value': '2020'}
+            ],
+            value='2020',  # Default to 2020
+            style={'width': '300px', 'margin': '0 auto'}
+        ), width=4)
+    ], style={'textAlign': 'center'}),
     
     dbc.Row([
         dbc.Col(dcc.RadioItems(
@@ -372,7 +384,7 @@ layout = dbc.Container([
         ), width=4)
     ], style={'textAlign': 'center'}),
     
-    # NEW: Currency selector
+    # Currency selector
     html.Br(),
     dbc.Row([
         dbc.Col(dcc.RadioItems(
@@ -408,18 +420,18 @@ layout = dbc.Container([
     html.Br(),
 ])
 
-
 @callback(
     [Output('portfolio-cumulative-chart', 'figure'),
      Output('stocks-cumulative-chart', 'figure'),
      Output('portfolio-return-card', 'children'),
      Output('volatility-card', 'children'),
      Output('current-composition-table', 'children')],
-    [Input('period-selector', 'value'),
+    [Input('composition-selector', 'value'),
+     Input('period-selector', 'value'),
      Input('currency-selector', 'value')]
 )
-def update_dashboard(period, currency):
-    portfolio_returns, portfolio_df, composition = load_data_and_calculate_returns(currency)
+def update_dashboard(composition_sheet, period, currency):
+    portfolio_returns, portfolio_df, composition = load_data_and_calculate_returns(composition_sheet, currency)
     
     if portfolio_returns.empty:
         empty_fig = go.Figure().add_annotation(
