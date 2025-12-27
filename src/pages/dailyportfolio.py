@@ -511,9 +511,10 @@ def update_dashboard(composition_sheet, period, currency):
         current_comps_display = current_comps[['Company','Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
         # Add Finviz hyperlinks to Company column
         current_comps_display['Company'] = [
-            f'[{row["Company"]}](https://www.marketwatch.com/investing/stock/{row["Symbol"].lower()} "target=_blank")'
+            f'<a href="https://www.marketwatch.com/investing/stock/{row["Symbol"].lower()}" target="_blank" rel="noopener noreferrer">{row["Company"]}</a>'
             for _, row in current_comps_display.iterrows()
         ]
+
 
 
         table = dash.dash_table.DataTable(
