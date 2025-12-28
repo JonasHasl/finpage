@@ -72,7 +72,7 @@ header_banner = dbc.Navbar(
                                                             'textAlign':'right'
 
                                                         }), className='menuitemtop'),
-                dbc.NavItem(dbc.NavLink("Yield Curve", href="/yield_curves", style={
+                dbc.NavItem(dbc.NavLink("Bond Market", href="/yield_curves", style={
                                                             "border": "none",
                                                             'font-size':'24px',
                                                             "color": '#7a7a7a',
