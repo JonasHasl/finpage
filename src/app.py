@@ -64,7 +64,7 @@ header_banner = dbc.Navbar(
                 #     }), className='menuitemtop'),
                 
                 
-                dbc.NavItem(dbc.NavLink("Economy Overview", href="/economy", style={
+                dbc.NavItem(dbc.NavLink("US Economy", href="/economy", style={
                                                             "border": "none",
                                                             "color": '#7a7a7a',
                                                             'text-transform': 'none',
