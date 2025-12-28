@@ -208,13 +208,11 @@ def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
     return fig
 
 def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
-    """Use the exact data retrieval script provided - WITH ACWI BENCHMARK (PERIOD RESET) AND FX CONVERSION"""
-    # Load from specific sheet based on dropdown selection
+    """Returns BOTH portfolio_df (filtered) AND full_symbol_df (unfiltered for stocks chart)"""
     composition = pd.read_excel('AlgoComposition.xlsx', sheet_name=composition_sheet)
     composition['ValidFrom'] = pd.to_datetime(composition['ValidFrom'], dayfirst=False)
     composition['ValidTo'] = pd.to_datetime(composition['ValidTo'], dayfirst=False)
     min_date = composition['ValidFrom'].min()
-
     today = date.today()  
     tickers = list(composition.Symbol.unique())
     
@@ -223,30 +221,31 @@ def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
     if currency == 'NOK':
         all_tickers += ['NOK=X']
     
-    df = yf.download(
-        all_tickers,
-        start=min_date,
-        end=today,
-        interval="1d",
-        auto_adjust=True,
-        threads=True,
-        progress=False
-    )
-
-    # Extract portfolio data (exclude ACWI and FX)
+    df = yf.download(all_tickers, start=min_date, end=today, interval="1d", auto_adjust=True, threads=True, progress=False)
+    
+    # *** NEW: Create FULL symbol price series (unfiltered) for stocks chart ***
     fx_ticker = 'NOK=X' if currency == 'NOK' else None
     portfolio_cols = [col for col in df['Close'].columns if col not in ['ACWI', fx_ticker]]
+    
+    # Full symbol data - NO composition filtering
+    full_symbol_df_raw = df['Close'][portfolio_cols].stack().reset_index()
+    full_symbol_df_raw.columns = ['Date', 'Symbol', 'Close']
+    full_symbol_df_raw['Date'] = pd.to_datetime(full_symbol_df_raw['Date'])
+    full_symbol_df_raw = full_symbol_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+    full_symbol_df_raw['Return'] = full_symbol_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
+    names = composition[['Symbol', 'Company']].drop_duplicates()
+    full_symbol_df_raw = full_symbol_df_raw.merge(names, on='Symbol')
+    full_symbol_df = full_symbol_df_raw.copy()
+    
+    # *** OLD: Portfolio data (filtered by composition periods) for portfolio returns ***
     portfolio_df_raw = df['Close'][portfolio_cols].stack().reset_index()
     portfolio_df_raw.columns = ['Date', 'Symbol', 'Close']
-    
     portfolio_df_raw['Date'] = pd.to_datetime(portfolio_df_raw['Date'])
     portfolio_df_raw = portfolio_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
     portfolio_df_raw['Return'] = portfolio_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
-
-    names = composition[['Symbol', 'Company']].drop_duplicates()
-
     portfolio_df_raw = portfolio_df_raw.merge(names, on='Symbol')
-    # Create active positions (portfolio only)
+    
+    # Create active positions (portfolio only - filtered)
     active_positions = []
     for _, row in composition.iterrows():
         mask = (
@@ -257,11 +256,11 @@ def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
         active = portfolio_df_raw[mask].copy()
         active['Weight'] = row.get('Weight', 1.0 / len(composition))
         active_positions.append(active)
-
+    
     portfolio_df = pd.concat(active_positions, ignore_index=True)
     portfolio_df = portfolio_df.sort_values(['Date', 'Symbol']).reset_index(drop=True)
     
-    # Portfolio returns calculation
+    # Rest of portfolio returns calculation stays THE SAME...
     portfolio_returns_list = []
     for date_val in sorted(portfolio_df['Date'].unique()):
         daily_data = portfolio_df[portfolio_df['Date'] == date_val]
@@ -278,78 +277,96 @@ def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
     acwi_data = df['Close']['ACWI'].loc[portfolio_returns.index]
     acwi_returns = acwi_data.pct_change().fillna(0)
     
-    # Apply FX conversion if needed
+    # Apply FX conversion if needed (to BOTH dataframes)
     if currency == 'NOK' and 'NOK=X' in df['Close'].columns:
-        
         usd_nok = df['Close']['NOK=X'].loc[portfolio_returns.index].ffill()
-        #print(usd_nok)
         fx_returns = usd_nok.pct_change().fillna(0)
         
-        # Convert portfolio returns: portfolio_return_NOK = portfolio_return_USD * fx_return
         portfolio_returns['Portfolio_Return'] += fx_returns
         acwi_returns += fx_returns
         
-        # FIXED: Convert INDIVIDUAL STOCK PRICES to NOK, then recalculate returns
-        usd_nok_daily = usd_nok.reindex(portfolio_df['Date']).ffill()
+        # Convert BOTH dataframes
+        usd_nok_daily_portfolio = usd_nok.reindex(portfolio_df['Date']).ffill()
         portfolio_df = portfolio_df.merge(
-            usd_nok_daily.reset_index().rename(columns={'index': 'Date', usd_nok_daily.name: 'USD_NOK'}),
+            usd_nok_daily_portfolio.reset_index().rename(columns={'index': 'Date', usd_nok_daily_portfolio.name: 'USD_NOK'}),
             on='Date', how='left'
         )
         portfolio_df['USD_NOK'] = portfolio_df['USD_NOK'].ffill()
-        
-        # Convert prices to NOK and recalculate returns from NOK prices
         portfolio_df['Close_NOK'] = portfolio_df['Close'] * portfolio_df['USD_NOK']
         portfolio_df['Return'] = portfolio_df.groupby('Symbol')['Close_NOK'].pct_change().fillna(0)
+        
+        usd_nok_daily_full = usd_nok.reindex(full_symbol_df['Date']).ffill()
+        full_symbol_df = full_symbol_df.merge(
+            usd_nok_daily_full.reset_index().rename(columns={'index': 'Date', usd_nok_daily_full.name: 'USD_NOK'}),
+            on='Date', how='left'
+        )
+        full_symbol_df['USD_NOK'] = full_symbol_df['USD_NOK'].ffill()
+        full_symbol_df['Close_NOK'] = full_symbol_df['Close'] * full_symbol_df['USD_NOK']
+        full_symbol_df['Return'] = full_symbol_df.groupby('Symbol')['Close_NOK'].pct_change().fillna(0)
     
     portfolio_returns['ACWI_Return'] = acwi_returns.round(4)
     portfolio_returns['Portfolio_Cumulative'] = (1 + portfolio_returns['Portfolio_Return']).cumprod() - 1
     
-    return portfolio_returns, portfolio_df, composition
+    return portfolio_returns, portfolio_df, full_symbol_df, composition
 
-def get_current_active_stocks(portfolio_df, composition, start_date, end_date):
-    """Safe cumulative returns calculation - FIXED index alignment"""
-    current_date = portfolio_df['Date'].max()
-    active_comps = composition[
+def get_current_active_stocks(full_symbol_df, composition, start_date, end_date):
+    """Use full price series for latest composition symbols - FIXED date matching"""
+    # Convert ALL dates to datetime consistently
+    current_date = pd.to_datetime(full_symbol_df['Date'].max())
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    
+    print(f"DEBUG: current_date={current_date}, symbols in full_symbol_df={full_symbol_df['Symbol'].nunique()}")
+    print(f"DEBUG: composition shape={composition.shape}")
+    
+    latest_comps = composition[
         (composition['ValidFrom'] <= current_date) & 
         (composition['ValidTo'] >= current_date)
-    ]
-    
-    active_stocks_data = portfolio_df[
-        (portfolio_df['Date'] >= start_date) & 
-        (portfolio_df['Date'] <= end_date) &
-        (portfolio_df['Symbol'].isin(active_comps['Symbol']))
     ].copy()
     
-    if active_stocks_data.empty:
-        return active_stocks_data, pd.DataFrame()
+    print(f"DEBUG: latest_comps found={len(latest_comps)}")
     
-    # Sort once
-    active_stocks_data = active_stocks_data.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+    current_symbols = latest_comps['Symbol'].unique()
+    print(f"DEBUG: current_symbols={current_symbols}")
     
-    # Calculate cumulative returns for each symbol
-    for symbol in active_stocks_data['Symbol'].unique():
-        mask = active_stocks_data['Symbol'] == symbol
-        symbol_indices = active_stocks_data[mask].index
-        
-        symbol_returns = active_stocks_data.loc[symbol_indices, 'Return'].values
-        symbol_cumulative = (1 + symbol_returns).cumprod() - 1
-        
-        active_stocks_data.loc[symbol_indices, 'Cumulative_Return'] = symbol_cumulative
+    if len(current_symbols) == 0:
+        print("DEBUG: No current symbols, using all composition symbols")
+        current_symbols = composition['Symbol'].unique()
+        latest_comps = composition.copy()
     
-    latest_stocks = active_stocks_data.groupby('Symbol')['Cumulative_Return'].last().reset_index()
+    # NOW all dates are datetime - consistent comparison
+    stocks_data = full_symbol_df[
+        (full_symbol_df['Date'] >= start_date) & 
+        (full_symbol_df['Date'] <= end_date) &
+        (full_symbol_df['Symbol'].isin(current_symbols))
+    ].copy()
     
-    return active_stocks_data, latest_stocks
+    print(f"DEBUG: stocks_data shape after filter={stocks_data.shape}")
+    
+    if stocks_data.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    
+    stocks_data = stocks_data.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+    
+    # Calculate cumulative returns WITH error handling
+    stocks_data['Cumulative_Return'] = 0.0
+    
+    for symbol in current_symbols:
+        mask = stocks_data['Symbol'] == symbol
+        if mask.sum() > 0:
+            symbol_returns = stocks_data.loc[mask, 'Return'].fillna(0)
+            if len(symbol_returns) > 0:
+                symbol_cumulative = (1 + symbol_returns).cumprod() - 1
+                stocks_data.loc[mask, 'Cumulative_Return'] = symbol_cumulative
+            else:
+                print(f"DEBUG: No returns data for {symbol}")
+    
+    stocks_data = stocks_data.dropna(subset=['Cumulative_Return'])
+    print(f"DEBUG: final stocks_data shape={stocks_data.shape}")
+    
+    return stocks_data, latest_comps
 
-# Dynamic description callback
-@callback(
-    Output('dynamic-description', 'children'),
-    Input('composition-selector', 'value')
-)
-def update_description(sheet):
-    if sheet == '2015':
-        return [description_2015, html.Hr()]
-    else:
-        return [description_2020, html.Hr()]
+
 
 layout = dbc.Container([
     html.Div(className='beforediv'),
@@ -370,14 +387,14 @@ layout = dbc.Container([
             style={'width': '300px', 'margin': '0 auto'}
         ), width=4)
     ], style={'textAlign': 'center'}),
-    
+    html.Br(),
     dbc.Row([
         dbc.Col(dcc.RadioItems(
             id='period-selector',
             options=[
                 {'label': 'YTD', 'value': 'ytd'},
                 {'label': 'MTD', 'value': 'mtd'},
-                {'label': 'From Start', 'value': 'full'}
+                {'label': 'From Start of Testing Period', 'value': 'full'}
             ],
             value='ytd',
             labelStyle={'display': 'inline-block'}
@@ -425,13 +442,20 @@ layout = dbc.Container([
      Output('stocks-cumulative-chart', 'figure'),
      Output('portfolio-return-card', 'children'),
      Output('volatility-card', 'children'),
-     Output('current-composition-table', 'children')],
+     Output('current-composition-table', 'children'),
+     Output('dynamic-description', 'children')],
     [Input('composition-selector', 'value'),
      Input('period-selector', 'value'),
      Input('currency-selector', 'value')]
 )
 def update_dashboard(composition_sheet, period, currency):
-    portfolio_returns, portfolio_df, composition = load_data_and_calculate_returns(composition_sheet, currency)
+    # Dynamic description
+    if composition_sheet == '2015':
+        description = [description_2015, html.Hr()]
+    else:
+        description = [description_2020, html.Hr()]
+    
+    portfolio_returns, portfolio_df, full_symbol_df, composition = load_data_and_calculate_returns(composition_sheet, currency)
     
     if portfolio_returns.empty:
         empty_fig = go.Figure().add_annotation(
@@ -440,7 +464,7 @@ def update_dashboard(composition_sheet, period, currency):
         )
         empty_fig.update_layout(height=400)
         no_data_card = dbc.Card(dbc.CardBody([html.H5("No data"), html.P("Check file format and dates")]))
-        return (empty_fig, empty_fig, no_data_card, no_data_card, no_data_card)
+        return (empty_fig, empty_fig, no_data_card, no_data_card, no_data_card, description)
     
     today = portfolio_returns.index.max()
     
@@ -472,9 +496,10 @@ def update_dashboard(composition_sheet, period, currency):
         end_date=today.date()
     )
 
-    stocks_data, latest_stocks = get_current_active_stocks(portfolio_df, composition, start_date, today)
+    stocks_data, latest_stocks = get_current_active_stocks(full_symbol_df, composition, start_date.date(), today.date())
+
     fig_stocks = create_stocks_graph(
-        title=f'',#{period.upper()} Current Active Stocks Cumulative Returns ({currency})',
+        title=f'{period.upper()} Latest Composition Stocks ({currency})',
         stocks_data=stocks_data,
         start_date=start_date.date(),
         end_date=today.date()
@@ -497,9 +522,11 @@ def update_dashboard(composition_sheet, period, currency):
     portfolio_card = create_card(f"{period.upper()} Total Return", total_return)
     vol_card = create_card("Annualized Volatility", volatility)
     
-    # Table (unchanged)
-    current_date = today
+    # Table - FIXED to show only current composition
+    # In update_dashboard(), change this line:
+    current_date = pd.to_datetime(today.date())  # Convert to datetime64
     current_comps = composition[(composition['ValidFrom'] <= current_date) & (composition['ValidTo'] >= current_date)].copy()
+
 
     if not current_comps.empty:
         # Format dates to short format (YYYY-MM-DD)
@@ -507,15 +534,12 @@ def update_dashboard(composition_sheet, period, currency):
         current_comps['ValidTo'] = pd.to_datetime(current_comps['ValidTo']).dt.strftime('%Y-%m-%d')
         current_comps['Weight_Pct'] = (pd.to_numeric(current_comps['Weight'], errors='coerce') * 100).round(1)
         
-
         current_comps_display = current_comps[['Company','Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
-        # Add Finviz hyperlinks to Company column
+        # Add MarketWatch hyperlinks to Company column
         current_comps_display['Company'] = [
             f'<a href="https://www.marketwatch.com/investing/stock/{row["Symbol"].lower()}" target="_blank" rel="noopener noreferrer">{row["Company"]}</a>'
             for _, row in current_comps_display.iterrows()
         ]
-
-
 
         table = dash.dash_table.DataTable(
             data=current_comps_display.to_dict('records'),
@@ -592,4 +616,4 @@ def update_dashboard(composition_sheet, period, currency):
             }
         )
 
-    return fig_portfolio, fig_stocks, portfolio_card, vol_card, table
+    return fig_portfolio, fig_stocks, portfolio_card, vol_card, table, description
