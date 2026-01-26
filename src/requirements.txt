@@ -10,11 +10,11 @@ packaging==23.1
 plotly==5.14.1
 tenacity==8.2.2
 Werkzeug==2.2.3
-pandas
 gunicorn
-pandas_datareader
 numpy
 fredapi
+pandas==2.2.3
+pandas_datareader==0.10.0
 yfinance
 bs4
 requests

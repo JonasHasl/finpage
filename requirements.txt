@@ -10,11 +10,11 @@ packaging==23.1
 tenacity==8.2.2
 Werkzeug==2.2.3
 matplotlib
-pandas
-pandas_datareader
+pandas==2.2.3
+pandas_datareader==0.10.0
+yfinance
 numpy
 fredapi
-yfinance
 bs4
 requests
 scipy
