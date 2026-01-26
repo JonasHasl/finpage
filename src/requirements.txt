@@ -15,7 +15,7 @@ numpy
 fredapi
 pandas==2.2.3
 pandas_datareader==0.10.0
-yfinance==0.2.40
+#yfinance==0.2.40
 
 bs4
 requests
