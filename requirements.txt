@@ -10,9 +10,10 @@ packaging==23.1
 tenacity==8.2.2
 Werkzeug==2.2.3
 matplotlib
-pandas#==2.2.3  # example; use your exact local
+pandas==2.2.3
 pandas_datareader==0.10.0
-yfinance==0.2.40  # etc.
+yfinance==0.2.40
+
 numpy
 fredapi
 bs4

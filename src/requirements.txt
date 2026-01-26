@@ -13,9 +13,10 @@ Werkzeug==2.2.3
 gunicorn
 numpy
 fredapi
-pandas#==2.2.3  # example; use your exact local
+pandas==2.2.3
 pandas_datareader==0.10.0
-yfinance==0.2.40  # etc.
+yfinance==0.2.40
+
 bs4
 requests
 requests_html
