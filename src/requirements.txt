@@ -10,12 +10,12 @@ packaging==23.1
 plotly==5.14.1
 tenacity==8.2.2
 Werkzeug==2.2.3
-pandas
 gunicorn
-pandas_datareader
 numpy
 fredapi
-yfinance
+pandas==2.2.3  # example; use your exact local
+pandas_datareader==0.10.0
+yfinance==0.2.40  # etc.
 bs4
 requests
 requests_html
