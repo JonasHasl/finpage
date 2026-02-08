@@ -15,10 +15,29 @@ updated_path = r"econW_updated.csv"
 
 # --- UTILITY FUNCTIONS ---
 def load_existing_data(path):
-    """Load existing dataset with date parsing"""
+    """Load existing dataset with conflict detection and date parsing."""
+    import os
+    if not os.path.exists(path):
+        print(f"No existing data at {path}. Starting fresh.")
+        return pd.DataFrame()  # Empty DataFrame
+    
     df = pd.read_csv(path).reset_index(drop=True)
-    df['Date'] = pd.to_datetime(df['Date'])
-    return df.sort_values('Date')
+    
+    # Detect and remove Git conflict rows
+    conflict_mask = df['Date'].astype(str).str.contains(r'<<<<<<<|=======|>>>>>>>', na=False, regex=True)
+    if conflict_mask.any():
+        print(f"Warning: Found {conflict_mask.sum()} Git conflict rows in {path}. Removing them.")
+        df = df[~conflict_mask].copy()
+    
+    # Parse dates with coercion
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df = df.dropna(subset=['Date']).sort_values('Date').reset_index(drop=True)
+    
+    if df.empty:
+        print("No valid dates after cleaning. Starting fresh.")
+    
+    return df
+
 
 def get_new_dates(existing_df):
     """Determine date range for incremental update"""
