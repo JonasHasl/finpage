@@ -198,6 +198,7 @@ def calculate_metrics(df):
     df['prev_date'] = df['Date'].apply(get_yoy_shift)
     cpi_shifted = df[['Date', 'CPIUS']].rename(columns={'Date':'prev_date', 'CPIUS':'CPIUS_prev'})
     df = df.merge(cpi_shifted, on='prev_date', how='left', suffixes=('', '_prev'))
+    
     df['CPI YoY'] = (df['CPIUS'] / df['CPIUS_prev'].fillna(method='ffill')) - 1
     df.drop(['prev_date', 'CPIUS_prev'], axis=1, inplace=True)
     #df.ffill(inplace=True)  # Forward fill to handle NaNs
