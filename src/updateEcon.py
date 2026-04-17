@@ -119,7 +119,7 @@ def updateEcon(reload='incremental', start_full='1998-12-26'):
         'spread': fetch_spread(start, end),
         'Close': fetch_yahoo('^GSPC', "Close"),
         'TenYield': fetch_yahoo('^TNX', "TenYield"),
-        'CPIUS': fetch_fred_series('CPIAUCNS', start, 'CPIUS'),
+        'CPIUS': fetch_fred_series('CPIAUCSL', start, 'CPIUS'),
         'm2': fetch_fred_series('M2SL', start, 'm2'),
         'unemp_rate': fetch_fred_series('UNRATE', start, 'unemp_rate'),
         'Trade Balance': fetch_fred_series('BOPGSTB', start, 'Trade Balance'),

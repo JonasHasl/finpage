@@ -244,7 +244,6 @@ def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
     portfolio_df_raw = portfolio_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
     portfolio_df_raw['Return'] = portfolio_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
     portfolio_df_raw = portfolio_df_raw.merge(names, on='Symbol')
-    
     # Create active positions (portfolio only - filtered)
     active_positions = []
     for _, row in composition.iterrows():
@@ -259,7 +258,7 @@ def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
     
     portfolio_df = pd.concat(active_positions, ignore_index=True)
     portfolio_df = portfolio_df.sort_values(['Date', 'Symbol']).reset_index(drop=True)
-    
+    portfolio_df = portfolio_df.drop_duplicates(['Date', 'Symbol'], keep='last')
     # Rest of portfolio returns calculation stays THE SAME...
     portfolio_returns_list = []
     for date_val in sorted(portfolio_df['Date'].unique()):
@@ -306,6 +305,8 @@ def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
     
     portfolio_returns['ACWI_Return'] = acwi_returns.round(4)
     portfolio_returns['Portfolio_Cumulative'] = (1 + portfolio_returns['Portfolio_Return']).cumprod() - 1
+
+    
     
     return portfolio_returns, portfolio_df, full_symbol_df, composition
 
@@ -324,6 +325,7 @@ def get_current_active_stocks(full_symbol_df, composition, start_date, end_date)
         (composition['ValidTo'] >= current_date)
     ].copy()
     
+    #print(f"latest_comps: {latest_comps}")
     print(f"DEBUG: latest_comps found={len(latest_comps)}")
     
     current_symbols = latest_comps['Symbol'].unique()
@@ -346,8 +348,10 @@ def get_current_active_stocks(full_symbol_df, composition, start_date, end_date)
     if stocks_data.empty:
         return pd.DataFrame(), pd.DataFrame()
     
+
     stocks_data = stocks_data.sort_values(['Symbol', 'Date']).reset_index(drop=True)
     
+    stocks_data = stocks_data.drop_duplicates(['Date', 'Symbol'], keep='last')
     # Calculate cumulative returns WITH error handling
     stocks_data['Cumulative_Return'] = 0.0
     
@@ -363,6 +367,7 @@ def get_current_active_stocks(full_symbol_df, composition, start_date, end_date)
     
     stocks_data = stocks_data.dropna(subset=['Cumulative_Return'])
     print(f"DEBUG: final stocks_data shape={stocks_data.shape}")
+
     
     return stocks_data, latest_comps
 
@@ -497,7 +502,7 @@ def update_dashboard(composition_sheet, period, currency):
     )
 
     stocks_data, latest_stocks = get_current_active_stocks(full_symbol_df, composition, start_date.date(), today.date())
-
+    stocks_data = stocks_data.drop_duplicates(['Date', 'Symbol'], keep='last')
     fig_stocks = create_stocks_graph(
         title=f'{period.upper()} Latest Composition Stocks ({currency})',
         stocks_data=stocks_data,
