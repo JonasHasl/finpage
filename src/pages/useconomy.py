@@ -60,7 +60,7 @@ firstdate = date(2000, 1, 1)
 def load_data():
     global economy, df_with_econ, latestdate, firstdate
 
-    updateEcon.updateEcon(reload='full')
+    updateEcon.updateEcon(reload='incremental')
     economy = load_economy_data()
 
     economy['unemp_rate'] = economy['unemp_rate'] / 100
