@@ -116,7 +116,7 @@ def updateEcon(reload='incremental', start_full='1998-12-26'):
     
     # 3. Fetch all new raw data
     new_data = {
-        'spread': fetch_spread(start, end),
+        'spread': fetch_fred_series('T10Y2Y',start, 'T10Y2Y'),
         'Close': fetch_yahoo('^GSPC', "Close"),
         'TenYield': fetch_yahoo('^TNX', "TenYield"),
         'CPIUS': fetch_fred_series('CPIAUCSL', start, 'CPIUS'),
