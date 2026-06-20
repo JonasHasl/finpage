@@ -9,7 +9,9 @@ import yfinance as yf
 import numpy as np
 import os
 
+
 dash.register_page(__name__, path='/portfolio-daily')
+
 
 colors = {
     'background': 'rgb(240,241,245)',
@@ -23,40 +25,57 @@ colors = {
     'header': '#7a7a7a'
 }
 
-# Dynamic descriptions
+
 description_2015 = '''The following algorithm is fitted for the period 2015-2024 to optimize Sharpe Ratio in a stock selection algorithm based on fundamental factors retrieved from Morningstar.'''
 description_2020 = '''The following algorithm is fitted for the period 2020-2024 to optimize Sharpe Ratio in a stock selection algorithm based on fundamental factors retrieved from Morningstar.'''
 
+
+CARD_STYLE = {
+    'background': 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(242,247,251,0.95))',
+    'border': '1px solid rgba(190,214,235,0.85)',
+    'borderRadius': '24px',
+    'boxShadow': '0 18px 45px rgba(10,33,59,0.09)',
+    'height': '100%'
+}
+
+SECTION_CARD_STYLE = {
+    'background': 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,249,252,0.94))',
+    'borderRadius': '26px',
+    'padding': '1.35rem',
+    'border': '1px solid rgba(190,214,235,0.85)',
+    'boxShadow': '0 18px 45px rgba(10,33,59,0.09)'
+}
+
+CARD_BODY_STYLE = {
+    'padding': '1.6rem 1.75rem'
+}
+
+
 def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, height=700):
-    """Portfolio vs ACWI benchmark - SINGLE TRACE ENHANCEMENT"""
     dataframe = pd.DataFrame(dataframe).ffill().fillna(0)
-    
-    # Convert start_date/end_date to date objects consistently
-    start_date = pd.to_datetime(start_date).date()
-    end_date = pd.to_datetime(end_date).date()
-    
-    # Ensure Date column exists and convert to date
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
     if 'Date' not in dataframe.columns:
         dataframe = dataframe.reset_index().rename(columns={'index': 'Date'})
-    
-    dataframe['Date'] = pd.to_datetime(dataframe['Date']).dt.date
-    
-    # Create mask with proper date comparison
+
+    dataframe['Date'] = pd.to_datetime(dataframe['Date'])
+
     mask = (dataframe['Date'] >= start_date) & (dataframe['Date'] <= end_date)
     filtered_df = dataframe.loc[mask].copy()
-    
+
     if filtered_df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No data", showarrow=False, font=dict(size=16))
         fig.update_layout(height=height)
         return fig
-    
-    # Create figure
+
     fig = go.Figure()
-    
+
     n_points = len(filtered_df)
     marker_sizes = [3] * (n_points - 1) + [8]
-    
+
     fig.add_trace(go.Scatter(
         x=filtered_df['Date'],
         y=filtered_df['Portfolio_Cumulative_Period'],
@@ -70,11 +89,10 @@ def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, hei
         ),
         hovertemplate='<b>Portfolio</b><br>Date: %{x}<br>Return: %{y:.1%}<extra></extra>'
     ))
-    
-    # ACWI benchmark trace (thinner gray) - NOW PERIOD RESET!
+
     fig.add_trace(go.Scatter(
         x=filtered_df['Date'],
-        y=filtered_df['ACWI_Cumulative_Period'],  # Uses period-specific cumulative
+        y=filtered_df['ACWI_Cumulative_Period'],
         mode='lines+markers',
         name='ACWI (Benchmark)',
         line=dict(color='#7f8c8d', width=2.5),
@@ -85,20 +103,18 @@ def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, hei
         ),
         hovertemplate='<b>ACWI</b><br>Date: %{x}<br>Return: %{y:.1%}<extra></extra>'
     ))
-    
-    # Dynamic y-axis range (both period series)
+
     y_min = min(
-        filtered_df['Portfolio_Cumulative_Period'].min()-0.05, 
-        filtered_df['ACWI_Cumulative_Period'].min()-0.05
+        filtered_df['Portfolio_Cumulative_Period'].min() - 0.05,
+        filtered_df['ACWI_Cumulative_Period'].min() - 0.05
     )
     y_max = max(
-        filtered_df['Portfolio_Cumulative_Period'].max()+0.1, 
-        filtered_df['ACWI_Cumulative_Period'].max()+0.1
+        filtered_df['Portfolio_Cumulative_Period'].max() + 0.1,
+        filtered_df['ACWI_Cumulative_Period'].max() + 0.1
     )
-    
-    # Apply economy styling with legend
+
     fig.update_layout(
-        title='',#dict(text=f"{title} vs ACWI Benchmark", x=0.5, font=dict(family="Helvetica", size=18)),
+        title='',
         yaxis_title="Cumulative Return",
         xaxis_title='Date',
         font=dict(family="Helvetica", size=15, color=colors['text']),
@@ -119,68 +135,71 @@ def create_portfolio_graph(title, dataframe, y_column, start_date, end_date, hei
             borderwidth=1
         )
     )
-    
+
     fig.update_xaxes(showgrid=True, gridcolor=colors['border'])
     fig.update_yaxes(showgrid=True, gridcolor=colors['border'], tickformat=".1%")
     fig.update_layout(uirevision='constant')
-    
+
     return fig
 
+
 def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
-    """Multi-line stocks graph with economy styling - FIXED hover labels"""
     if stocks_data.empty:
         fig = go.Figure()
         fig.add_annotation(text="No active stocks", showarrow=False, font=dict(size=16))
         fig.update_layout(height=height)
         return fig
-    
-    # Convert dates consistently
-    start_date = pd.to_datetime(start_date).date()
-    end_date = pd.to_datetime(end_date).date()
-    
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
     stocks_data = stocks_data.copy()
-    stocks_data['Date'] = pd.to_datetime(stocks_data['Date']).dt.date
-    
+    stocks_data['Date'] = pd.to_datetime(stocks_data['Date'])
+
     mask = (stocks_data['Date'] >= start_date) & (stocks_data['Date'] <= end_date)
     filtered_stocks = stocks_data.loc[mask].copy()
-    
+
     if filtered_stocks.empty:
         fig = go.Figure()
         fig.add_annotation(text="No data", showarrow=False, font=dict(size=16))
         fig.update_layout(height=height)
         return fig
-    
-    # Create figure with all symbols
+
     fig = go.Figure()
-    
-    # Dynamic colors for each symbol
+
     symbols = filtered_stocks['Symbol'].unique()
     colors_list = ['#2a3f5f', '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
-    
+
     for i, symbol in enumerate(symbols):
-        symbol_data = filtered_stocks[filtered_stocks['Symbol'] == symbol]
+        symbol_data = filtered_stocks[filtered_stocks['Symbol'] == symbol].copy()
         color = colors_list[i % len(colors_list)]
-        
-        # Main line trace
+
+        if len(symbol_data) > 0:
+            marker_sizes = [2] * max(len(symbol_data) - 1, 0) + [8]
+        else:
+            marker_sizes = [8]
+
         fig.add_trace(go.Scatter(
             x=symbol_data['Date'],
             y=symbol_data['Cumulative_Return'],
             mode='lines+markers',
             name=symbol,
             line=dict(color=color, width=2.5),
-            marker=dict(color='red', size=[2]*len(symbol_data[:-1]) + [8], symbol=['circle']*len(symbol_data)),  # Large last marker
+            marker=dict(
+                color=[color] * max(len(symbol_data) - 1, 0) + ['red'] if len(symbol_data) > 0 else ['red'],
+                size=marker_sizes,
+                symbol='circle'
+            ),
             legendgroup=symbol,
             hovertemplate=f'<b>{symbol}</b><br>Date: %{{x}}<br>Return: %{{y:.1%}}<extra></extra>'
         ))
 
-    # Dynamic y-axis range
     all_returns = filtered_stocks['Cumulative_Return']
     y_min, y_max = all_returns.min(), all_returns.max()
-    y_buffer = (y_max - y_min) * 0.05
+    y_buffer = max((y_max - y_min) * 0.05, 0.02)
     y_min -= y_buffer
     y_max += y_buffer
-    
-    # Apply economy styling
+
     fig.update_layout(
         title=dict(text=title, x=0.5, font=dict(family="Helvetica", size=18)),
         yaxis_title="Cumulative Return",
@@ -198,249 +217,339 @@ def create_stocks_graph(title, stocks_data, start_date, end_date, height=700):
             xanchor="center",
             x=0.5
         ),
-        hovermode='x unified'  # Better hover experience
+        hovermode='x unified'
     )
-    
+
     fig.update_xaxes(showgrid=True, gridcolor=colors['border'])
     fig.update_yaxes(showgrid=True, gridcolor=colors['border'], tickformat=".1%")
     fig.update_layout(uirevision='constant')
-    
+
     return fig
 
+
 def load_data_and_calculate_returns(composition_sheet='2020', currency='USD'):
-    """Returns BOTH portfolio_df (filtered) AND full_symbol_df (unfiltered for stocks chart)"""
     composition = pd.read_excel('AlgoComposition.xlsx', sheet_name=composition_sheet)
     composition['ValidFrom'] = pd.to_datetime(composition['ValidFrom'], dayfirst=False)
     composition['ValidTo'] = pd.to_datetime(composition['ValidTo'], dayfirst=False)
+
     min_date = composition['ValidFrom'].min()
-    today = date.today()  
+    today = date.today()
     tickers = list(composition.Symbol.unique())
-    
-    # Download portfolio tickers + ACWI benchmark + FX if needed
+
     all_tickers = tickers + ['ACWI']
     if currency == 'NOK':
         all_tickers += ['NOK=X']
-    
-    df = yf.download(all_tickers, start=min_date, end=today, interval="1d", auto_adjust=True, threads=True, progress=False)
-    
-    # *** NEW: Create FULL symbol price series (unfiltered) for stocks chart ***
+
+    df = yf.download(
+        all_tickers,
+        start=min_date,
+        end=today,
+        interval="1d",
+        auto_adjust=True,
+        threads=True,
+        progress=False
+    )
+
     fx_ticker = 'NOK=X' if currency == 'NOK' else None
     portfolio_cols = [col for col in df['Close'].columns if col not in ['ACWI', fx_ticker]]
-    
-    # Full symbol data - NO composition filtering
+
     full_symbol_df_raw = df['Close'][portfolio_cols].stack().reset_index()
     full_symbol_df_raw.columns = ['Date', 'Symbol', 'Close']
     full_symbol_df_raw['Date'] = pd.to_datetime(full_symbol_df_raw['Date'])
     full_symbol_df_raw = full_symbol_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
     full_symbol_df_raw['Return'] = full_symbol_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
+
     names = composition[['Symbol', 'Company']].drop_duplicates()
-    full_symbol_df_raw = full_symbol_df_raw.merge(names, on='Symbol')
+    full_symbol_df_raw = full_symbol_df_raw.merge(names, on='Symbol', how='left')
     full_symbol_df = full_symbol_df_raw.copy()
-    
-    # *** OLD: Portfolio data (filtered by composition periods) for portfolio returns ***
+
     portfolio_df_raw = df['Close'][portfolio_cols].stack().reset_index()
     portfolio_df_raw.columns = ['Date', 'Symbol', 'Close']
     portfolio_df_raw['Date'] = pd.to_datetime(portfolio_df_raw['Date'])
     portfolio_df_raw = portfolio_df_raw.sort_values(['Symbol', 'Date']).reset_index(drop=True)
     portfolio_df_raw['Return'] = portfolio_df_raw.groupby('Symbol')['Close'].pct_change().fillna(0)
-    portfolio_df_raw = portfolio_df_raw.merge(names, on='Symbol')
-    # Create active positions (portfolio only - filtered)
+    portfolio_df_raw = portfolio_df_raw.merge(names, on='Symbol', how='left')
+
     active_positions = []
     for _, row in composition.iterrows():
         mask = (
-            (portfolio_df_raw['Date'] >= row['ValidFrom']) & 
-            (portfolio_df_raw['Date'] <= row['ValidTo']) & 
+            (portfolio_df_raw['Date'] >= row['ValidFrom']) &
+            (portfolio_df_raw['Date'] <= row['ValidTo']) &
             (portfolio_df_raw['Symbol'] == row['Symbol'])
         )
-        active = portfolio_df_raw[mask].copy()
+        active = portfolio_df_raw.loc[mask].copy()
         active['Weight'] = row.get('Weight', 1.0 / len(composition))
         active_positions.append(active)
-    
+
     portfolio_df = pd.concat(active_positions, ignore_index=True)
     portfolio_df = portfolio_df.sort_values(['Date', 'Symbol']).reset_index(drop=True)
     portfolio_df = portfolio_df.drop_duplicates(['Date', 'Symbol'], keep='last')
-    # Rest of portfolio returns calculation stays THE SAME...
+
     portfolio_returns_list = []
     for date_val in sorted(portfolio_df['Date'].unique()):
         daily_data = portfolio_df[portfolio_df['Date'] == date_val]
         if not daily_data.empty:
             daily_portfolio_ret = (daily_data['Return'] * daily_data['Weight']).sum()
             portfolio_returns_list.append({'Date': date_val, 'Portfolio_Return': daily_portfolio_ret})
-    
+
     portfolio_returns = pd.DataFrame(portfolio_returns_list)
     portfolio_returns['Date'] = pd.to_datetime(portfolio_returns['Date'])
     portfolio_returns = portfolio_returns.set_index('Date').sort_index()
-    portfolio_returns['Portfolio_Return'] = portfolio_returns['Portfolio_Return'].round(4)
-    
-    # ACWI benchmark returns
+    portfolio_returns['Portfolio_Return'] = portfolio_returns['Portfolio_Return'].round(8)
+
     acwi_data = df['Close']['ACWI'].loc[portfolio_returns.index]
     acwi_returns = acwi_data.pct_change().fillna(0)
-    
-    # Apply FX conversion if needed (to BOTH dataframes)
+
     if currency == 'NOK' and 'NOK=X' in df['Close'].columns:
-        usd_nok = df['Close']['NOK=X'].loc[portfolio_returns.index].ffill()
-        fx_returns = usd_nok.pct_change().fillna(0)
-        
-        portfolio_returns['Portfolio_Return'] += fx_returns
-        acwi_returns += fx_returns
-        
-        # Convert BOTH dataframes
-        usd_nok_daily_portfolio = usd_nok.reindex(portfolio_df['Date']).ffill()
-        portfolio_df = portfolio_df.merge(
-            usd_nok_daily_portfolio.reset_index().rename(columns={'index': 'Date', usd_nok_daily_portfolio.name: 'USD_NOK'}),
-            on='Date', how='left'
+        usd_nok_series = df['Close']['NOK=X'].sort_index().ffill()
+
+        fx_returns_portfolio = usd_nok_series.reindex(portfolio_returns.index).ffill().pct_change().fillna(0)
+        portfolio_returns['Portfolio_Return'] = (
+            (1 + portfolio_returns['Portfolio_Return']) * (1 + fx_returns_portfolio) - 1
         )
-        portfolio_df['USD_NOK'] = portfolio_df['USD_NOK'].ffill()
-        portfolio_df['Close_NOK'] = portfolio_df['Close'] * portfolio_df['USD_NOK']
-        portfolio_df['Return'] = portfolio_df.groupby('Symbol')['Close_NOK'].pct_change().fillna(0)
-        
-        usd_nok_daily_full = usd_nok.reindex(full_symbol_df['Date']).ffill()
-        full_symbol_df = full_symbol_df.merge(
-            usd_nok_daily_full.reset_index().rename(columns={'index': 'Date', usd_nok_daily_full.name: 'USD_NOK'}),
-            on='Date', how='left'
+        acwi_returns = ((1 + acwi_returns) * (1 + fx_returns_portfolio) - 1)
+
+        fx_returns_portfolio_df = (
+            usd_nok_series
+            .reindex(portfolio_df['Date'])
+            .ffill()
+            .pct_change()
+            .fillna(0)
+            .reset_index(drop=True)
         )
-        full_symbol_df['USD_NOK'] = full_symbol_df['USD_NOK'].ffill()
-        full_symbol_df['Close_NOK'] = full_symbol_df['Close'] * full_symbol_df['USD_NOK']
-        full_symbol_df['Return'] = full_symbol_df.groupby('Symbol')['Close_NOK'].pct_change().fillna(0)
-    
-    portfolio_returns['ACWI_Return'] = acwi_returns.round(4)
+        portfolio_df = portfolio_df.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+        portfolio_df['FX_Return'] = fx_returns_portfolio_df
+        portfolio_df['Return'] = (1 + portfolio_df['Return']) * (1 + portfolio_df['FX_Return']) - 1
+
+        fx_returns_full = (
+            usd_nok_series
+            .reindex(full_symbol_df['Date'])
+            .ffill()
+            .pct_change()
+            .fillna(0)
+            .reset_index(drop=True)
+        )
+        full_symbol_df = full_symbol_df.sort_values(['Symbol', 'Date']).reset_index(drop=True)
+        full_symbol_df['FX_Return'] = fx_returns_full
+        full_symbol_df['Return'] = (1 + full_symbol_df['Return']) * (1 + full_symbol_df['FX_Return']) - 1
+
+    portfolio_returns['ACWI_Return'] = acwi_returns.round(8)
     portfolio_returns['Portfolio_Cumulative'] = (1 + portfolio_returns['Portfolio_Return']).cumprod() - 1
 
-    
-    
     return portfolio_returns, portfolio_df, full_symbol_df, composition
 
+
 def get_current_active_stocks(full_symbol_df, composition, start_date, end_date):
-    """Use full price series for latest composition symbols - FIXED date matching"""
-    # Convert ALL dates to datetime consistently
     current_date = pd.to_datetime(full_symbol_df['Date'].max())
     start_date = pd.to_datetime(start_date)
     end_date = pd.to_datetime(end_date)
-    
-    print(f"DEBUG: current_date={current_date}, symbols in full_symbol_df={full_symbol_df['Symbol'].nunique()}")
-    print(f"DEBUG: composition shape={composition.shape}")
-    
+
     latest_comps = composition[
-        (composition['ValidFrom'] <= current_date) & 
+        (composition['ValidFrom'] <= current_date) &
         (composition['ValidTo'] >= current_date)
     ].copy()
-    
-    #print(f"latest_comps: {latest_comps}")
-    print(f"DEBUG: latest_comps found={len(latest_comps)}")
-    
-    current_symbols = latest_comps['Symbol'].unique()
-    print(f"DEBUG: current_symbols={current_symbols}")
-    
+
+    current_symbols = latest_comps.sort_values('Symbol')['Symbol'].unique()
+
     if len(current_symbols) == 0:
-        print("DEBUG: No current symbols, using all composition symbols")
         current_symbols = composition['Symbol'].unique()
         latest_comps = composition.copy()
-    
-    # NOW all dates are datetime - consistent comparison
+
     stocks_data = full_symbol_df[
-        (full_symbol_df['Date'] >= start_date) & 
+        (full_symbol_df['Date'] >= start_date) &
         (full_symbol_df['Date'] <= end_date) &
         (full_symbol_df['Symbol'].isin(current_symbols))
     ].copy()
-    
-    print(f"DEBUG: stocks_data shape after filter={stocks_data.shape}")
-    
+
     if stocks_data.empty:
         return pd.DataFrame(), pd.DataFrame()
-    
 
     stocks_data = stocks_data.sort_values(['Symbol', 'Date']).reset_index(drop=True)
-    
     stocks_data = stocks_data.drop_duplicates(['Date', 'Symbol'], keep='last')
-    # Calculate cumulative returns WITH error handling
-    stocks_data['Cumulative_Return'] = 0.0
-    
-    for symbol in current_symbols:
-        mask = stocks_data['Symbol'] == symbol
-        if mask.sum() > 0:
-            symbol_returns = stocks_data.loc[mask, 'Return'].fillna(0)
-            if len(symbol_returns) > 0:
-                symbol_cumulative = (1 + symbol_returns).cumprod() - 1
-                stocks_data.loc[mask, 'Cumulative_Return'] = symbol_cumulative
-            else:
-                print(f"DEBUG: No returns data for {symbol}")
-    
+
+    stocks_data['Cumulative_Return'] = (
+        stocks_data.groupby('Symbol')['Return']
+        .transform(lambda s: (1 + s.fillna(0)).cumprod() - 1)
+    )
+
     stocks_data = stocks_data.dropna(subset=['Cumulative_Return'])
-    print(f"DEBUG: final stocks_data shape={stocks_data.shape}")
 
-    
     return stocks_data, latest_comps
-
 
 
 layout = dbc.Container([
     html.Div(className='beforediv'),
-    dbc.Row(dbc.Col(html.H1("Optimized Factor Portfolio", className='headerfinvest', style={'textAlign': 'center'}))),
-    
-    # NEW: Dynamic description
-    html.Div(id='dynamic-description', className='normal-text', style={'textAlign': 'center', 'font-size': '1.2rem', 'margin': '0 10%', 'fontWeight': 'bold'}),
-    
-    # NEW: Composition dropdown
-    dbc.Row([
-        dbc.Col(dcc.Dropdown(
-            id='composition-selector',
-            options=[
-                {'label': 'Fitted 2015-2024', 'value': '2015'},
-                {'label': 'Fitted 2020-2024', 'value': '2020'}
-            ],
-            value='2020',  # Default to 2020
-            style={'width': '300px', 'margin': '0 auto'}
-        ), width=4)
-    ], style={'textAlign': 'center'}),
-    html.Br(),
-    dbc.Row([
-        dbc.Col(dcc.RadioItems(
-            id='period-selector',
-            options=[
-                {'label': 'YTD', 'value': 'ytd'},
-                {'label': 'MTD', 'value': 'mtd'},
-                {'label': 'From Start of Testing Period', 'value': 'full'}
-            ],
-            value='ytd',
-            labelStyle={'display': 'inline-block'}
-        ), width=4)
-    ], style={'textAlign': 'center'}),
-    
-    # Currency selector
-    html.Br(),
-    dbc.Row([
-        dbc.Col(dcc.RadioItems(
-            id='currency-selector',
-            options=[
-                {'label': 'USD Returns', 'value': 'USD'},
-                {'label': 'NOK Returns', 'value': 'NOK'}
-            ],
-            value='USD',
-            labelStyle={'display': 'inline-block'}
-        ), width=4)
-    ], style={'textAlign': 'center'}),
-    
-    html.Br(),
-    dbc.Row([
-        dbc.Col(dcc.Graph(id='portfolio-cumulative-chart'), width=12)
-    ]),
-    
-    dbc.Row([
-        dbc.Col(dcc.Graph(id='stocks-cumulative-chart'), width=12)
-    ]),
-    
+
+    html.Div([
+        html.Div("Factor investing dashboard", style={
+            'display': 'inline-block',
+            'padding': '0.45rem 1rem',
+            'borderRadius': '999px',
+            'background': 'linear-gradient(135deg, rgba(0,65,114,0.10), rgba(30,58,90,0.16))',
+            'border': '1px solid rgba(0,65,114,0.12)',
+            'color': '#004172',
+            'fontSize': '0.92rem',
+            'letterSpacing': '0.04em',
+            'textTransform': 'uppercase',
+            'fontWeight': '600',
+            'marginBottom': '1rem'
+        }),
+        html.H1("Optimized Factor Portfolio", className='headerfinvest', style={
+            'textAlign': 'center',
+            'marginBottom': '0.75rem',
+            'color': '#0f2744',
+            'fontWeight': '500',
+            'letterSpacing': '-0.03em',
+            'lineHeight': '1.05'
+        }),
+        html.Div(id='dynamic-description', className='normal-text', style={
+            'textAlign': 'center',
+            'fontSize': '1.05rem',
+            'margin': '0 auto',
+            'maxWidth': '860px',
+            'fontWeight': '400',
+            'lineHeight': '1.75',
+            'color': '#516274'
+        })
+    ], style={
+        'maxWidth': '1120px',
+        'margin': '0 auto 1.5rem auto',
+        'padding': '2.6rem 2rem 2rem 2rem',
+        'borderRadius': '28px',
+        'background': 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(237,243,244,0.92))',
+        'boxShadow': '0 24px 70px rgba(10,33,59,0.12)',
+        'border': '1px solid rgba(190,214,235,0.85)',
+        'position': 'relative',
+        'overflow': 'hidden'
+    }),
+
     html.Div([
         dbc.Row([
-            dbc.Col(html.Div(id='portfolio-return-card'), width=6),
-            dbc.Col(html.Div(id='volatility-card'), width=6)
-        ]),
+            dbc.Col([
+                html.Div("Model window", style={'fontSize': '0.85rem', 'fontWeight': '600', 'color': '#5f7488', 'marginBottom': '0.55rem'}),
+                dcc.Dropdown(
+                    id='composition-selector',
+                    options=[
+                        {'label': 'Fitted 2015-2024', 'value': '2015'},
+                        {'label': 'Fitted 2020-2024', 'value': '2020'}
+                    ],
+                    value='2020',
+                    clearable=False,
+                    style={'width': '100%'}
+                )
+            ], xs=12, md=4),
+            dbc.Col([
+                html.Div("Performance period", style={'fontSize': '0.85rem', 'fontWeight': '600', 'color': '#5f7488', 'marginBottom': '0.55rem'}),
+                dcc.RadioItems(
+                    id='period-selector',
+                    options=[
+                        {'label': 'YTD', 'value': 'ytd'},
+                        {'label': 'MTD', 'value': 'mtd'},
+                        {'label': 'From Start of Testing Period', 'value': 'full'}
+                    ],
+                    value='full',
+                    labelStyle={
+                        'display': 'inline-flex',
+                        'alignItems': 'center',
+                        'marginRight': '0.7rem',
+                        'marginBottom': '0.6rem',
+                        'padding': '0.7rem 1rem',
+                        'borderRadius': '999px',
+                        'backgroundColor': '#f7fafc',
+                        'border': '1px solid #d7e3ef',
+                        'fontWeight': '500',
+                        'color': '#27425c'
+                    },
+                    inputStyle={'marginRight': '0.45rem'}
+                )
+            ], xs=12, md=5),
+            dbc.Col([
+                html.Div("Base currency", style={'fontSize': '0.85rem', 'fontWeight': '600', 'color': '#5f7488', 'marginBottom': '0.55rem'}),
+                dcc.RadioItems(
+                    id='currency-selector',
+                    options=[
+                        {'label': 'USD Returns', 'value': 'USD'},
+                        {'label': 'NOK Returns', 'value': 'NOK'}
+                    ],
+                    value='USD',
+                    labelStyle={
+                        'display': 'inline-flex',
+                        'alignItems': 'center',
+                        'marginRight': '0.7rem',
+                        'marginBottom': '0.6rem',
+                        'padding': '0.7rem 1rem',
+                        'borderRadius': '999px',
+                        'backgroundColor': '#f7fafc',
+                        'border': '1px solid #d7e3ef',
+                        'fontWeight': '500',
+                        'color': '#27425c'
+                    },
+                    inputStyle={'marginRight': '0.45rem'}
+                )
+            ], xs=12, md=3)
+        ], className='g-3')
+    ], style={
+        'maxWidth': '1120px',
+        'margin': '0 auto 1.75rem auto',
+        'padding': '1.4rem 1.5rem',
+        'backgroundColor': 'rgba(255,255,255,0.88)',
+        'border': '1px solid rgba(190,214,235,0.85)',
+        'borderRadius': '24px',
+        'boxShadow': '0 14px 38px rgba(10,33,59,0.08)'
+    }),
+
+    dbc.Row([
+        dbc.Col(html.Div([
+            html.Div("Portfolio vs benchmark", style={
+                'fontSize': '0.92rem',
+                'fontWeight': '700',
+                'letterSpacing': '0.03em',
+                'textTransform': 'uppercase',
+                'color': '#5f7488',
+                'marginBottom': '0.8rem'
+            }),
+            dcc.Graph(id='portfolio-cumulative-chart', style={'height': '100%'})
+        ], style=SECTION_CARD_STYLE), width=12)
+    ], style={'maxWidth': '1120px', 'margin': '0 auto 1.5rem auto'}),
+
+    dbc.Row([
+        dbc.Col(html.Div([
+            html.Div("Latest holdings performance", style={
+                'fontSize': '0.92rem',
+                'fontWeight': '700',
+                'letterSpacing': '0.03em',
+                'textTransform': 'uppercase',
+                'color': '#5f7488',
+                'marginBottom': '0.8rem'
+            }),
+            dcc.Graph(id='stocks-cumulative-chart', style={'height': '100%'})
+        ], style=SECTION_CARD_STYLE), width=12)
+    ], style={'maxWidth': '1120px', 'margin': '0 auto 1.5rem auto'}),
+
+    html.Div([
         dbc.Row([
-            dbc.Col(html.Div(id='current-composition-table'), width=12)
-        ])
-    ], className='my-card-container', style={'display': 'flex', 'justifyContent': 'center', 'flexWrap': 'wrap', 'gap': '20px'}),
-    
+            dbc.Col(html.Div(id='portfolio-return-card'), xs=12, md=10, lg=5),
+            dbc.Col(html.Div(id='volatility-card'), xs=12, md=10, lg=5)
+        ], className='g-4 justify-content-center'),
+        dbc.Row([
+            dbc.Col(html.Div([
+                html.Div("Current composition", style={
+                    'fontSize': '0.92rem',
+                    'fontWeight': '700',
+                    'letterSpacing': '0.03em',
+                    'textTransform': 'uppercase',
+                    'color': '#5f7488',
+                    'marginBottom': '0.8rem',
+                    'padding': '0 0.2rem'
+                }),
+                html.Div(id='current-composition-table')
+            ], style=SECTION_CARD_STYLE), width=12)
+        ], style={'marginTop': '1.25rem'})
+    ], style={'maxWidth': '1120px', 'margin': '0 auto 2rem auto'}),
+
     html.Br(),
-])
+], fluid=True)
+
 
 @callback(
     [Output('portfolio-cumulative-chart', 'figure'),
@@ -454,93 +563,126 @@ layout = dbc.Container([
      Input('currency-selector', 'value')]
 )
 def update_dashboard(composition_sheet, period, currency):
-    # Dynamic description
     if composition_sheet == '2015':
         description = [description_2015, html.Hr()]
     else:
         description = [description_2020, html.Hr()]
-    
+
     portfolio_returns, portfolio_df, full_symbol_df, composition = load_data_and_calculate_returns(composition_sheet, currency)
-    
+
     if portfolio_returns.empty:
         empty_fig = go.Figure().add_annotation(
-            text="No data available - check AlgoComposition.xlsx", 
-            showarrow=False, font=dict(size=16)
+            text="No data available - check AlgoComposition.xlsx",
+            showarrow=False,
+            font=dict(size=16)
         )
         empty_fig.update_layout(height=400)
-        no_data_card = dbc.Card(dbc.CardBody([html.H5("No data"), html.P("Check file format and dates")]))
-        return (empty_fig, empty_fig, no_data_card, no_data_card, no_data_card, description)
-    
+
+        no_data_card = dbc.Card(
+            dbc.CardBody(
+                [html.H5("No data"), html.P("Check file format and dates")],
+                style=CARD_BODY_STYLE
+            ),
+            style=CARD_STYLE
+        )
+        return empty_fig, empty_fig, no_data_card, no_data_card, no_data_card, description
+
     today = portfolio_returns.index.max()
-    
+
     if period == 'ytd':
         start_date = pd.Timestamp(today.year, 1, 1)
     elif period == 'mtd':
         start_date = today.replace(day=1)
-    else:  # full
+    else:
         start_date = portfolio_returns.index.min()
-    
-    # In update_dashboard function, after filtering period_returns:
+
     period_returns = portfolio_returns[
-        (portfolio_returns.index >= start_date) & 
+        (portfolio_returns.index >= start_date) &
         (portfolio_returns.index <= today)
     ].copy()
 
-    # Create period-specific cumulative returns (both reset to 0% at period start!)
     period_returns['Portfolio_Cumulative_Period'] = (1 + period_returns['Portfolio_Return']).cumprod() - 1
     period_returns['ACWI_Cumulative_Period'] = (1 + period_returns['ACWI_Return']).cumprod() - 1
+    period_returns = period_returns.reset_index()
 
-    period_returns.reset_index(inplace=True)  # For create_graph compatibility
-    
-    # Create charts
     fig_portfolio = create_portfolio_graph(
         title=f'{period.upper()} Portfolio Cumulative Return ({currency})',
         dataframe=period_returns,
         y_column='Portfolio_Cumulative_Period',
-        start_date=start_date.date(),
-        end_date=today.date()
+        start_date=start_date,
+        end_date=today
     )
 
-    stocks_data, latest_stocks = get_current_active_stocks(full_symbol_df, composition, start_date.date(), today.date())
+    stocks_data, latest_stocks = get_current_active_stocks(
+        full_symbol_df,
+        composition,
+        start_date,
+        today
+    )
     stocks_data = stocks_data.drop_duplicates(['Date', 'Symbol'], keep='last')
+
     fig_stocks = create_stocks_graph(
         title=f'{period.upper()} Latest Composition Stocks ({currency})',
         stocks_data=stocks_data,
-        start_date=start_date.date(),
-        end_date=today.date()
+        start_date=start_date,
+        end_date=today
     )
 
-    # Cards (unchanged)
     total_return = period_returns['Portfolio_Cumulative_Period'].iloc[-1]
     volatility = period_returns['Portfolio_Return'].std() * np.sqrt(252)
-    
+
     def create_card(title, value, is_percent=True):
         fmt = f"{value:.1%}" if is_percent else f"{value:.3f}"
         return dbc.Card(
             dbc.CardBody([
-                html.H5(f"{title} ({currency})", style={'textAlign': 'center', 'color': colors['accent']}),
-                html.P(fmt, className="card-text", style={'fontSize': '1.8rem', 'fontWeight': 'bold'})
-            ]), 
-            style={'backgroundColor': 'white', 'boxShadow': '0 4px 8px rgba(0,0,0,0.1)'}
+                html.Div(title, style={
+                    'fontSize': '0.9rem',
+                    'textTransform': 'uppercase',
+                    'letterSpacing': '0.04em',
+                    'fontWeight': '700',
+                    'color': '#688096',
+                    'marginBottom': '0.8rem'
+                }),
+                html.Div(f"Measured in {currency}", style={
+                    'textAlign': 'left',
+                    'color': '#0f2744',
+                    'fontSize': '1rem',
+                    'marginBottom': '0.5rem',
+                    'fontWeight': '600'
+                }),
+                html.Div(fmt, style={
+                    'fontSize': '2.4rem',
+                    'fontWeight': '700',
+                    'color': '#0a213b',
+                    'marginBottom': '0.5rem',
+                    'lineHeight': '1.05'
+                }),
+                html.Div('Updated for the selected model window and period.', style={
+                    'fontSize': '0.95rem',
+                    'color': '#6d7d8d',
+                    'lineHeight': '1.5'
+                })
+            ], style=CARD_BODY_STYLE),
+            style=CARD_STYLE,
+            className='h-100'
         )
-    
+
     portfolio_card = create_card(f"{period.upper()} Total Return", total_return)
     vol_card = create_card("Annualized Volatility", volatility)
-    
-    # Table - FIXED to show only current composition
-    # In update_dashboard(), change this line:
-    current_date = pd.to_datetime(today.date())  # Convert to datetime64
-    current_comps = composition[(composition['ValidFrom'] <= current_date) & (composition['ValidTo'] >= current_date)].copy()
 
+    current_date = pd.to_datetime(today)
+    current_comps = composition[
+        (composition['ValidFrom'] <= current_date) &
+        (composition['ValidTo'] >= current_date)
+    ].copy()
 
     if not current_comps.empty:
-        # Format dates to short format (YYYY-MM-DD)
         current_comps['ValidFrom'] = pd.to_datetime(current_comps['ValidFrom']).dt.strftime('%Y-%m-%d')
         current_comps['ValidTo'] = pd.to_datetime(current_comps['ValidTo']).dt.strftime('%Y-%m-%d')
         current_comps['Weight_Pct'] = (pd.to_numeric(current_comps['Weight'], errors='coerce') * 100).round(1)
-        
-        current_comps_display = current_comps[['Company','Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
-        # Add MarketWatch hyperlinks to Company column
+
+        current_comps_display = current_comps[['Company', 'Symbol', 'Weight_Pct', 'ValidFrom', 'ValidTo']].sort_values('Weight_Pct', ascending=False)
+
         current_comps_display['Company'] = [
             f'<a href="https://www.marketwatch.com/investing/stock/{row["Symbol"].lower()}" target="_blank" rel="noopener noreferrer">{row["Company"]}</a>'
             for _, row in current_comps_display.iterrows()
@@ -549,36 +691,32 @@ def update_dashboard(composition_sheet, period, currency):
         table = dash.dash_table.DataTable(
             data=current_comps_display.to_dict('records'),
             columns=[
-                {
-                    'name': 'Company', 
-                    'id': 'Company',
-                    'presentation': 'markdown',  # REQUIRED
-                    'type': 'text'
-                },
+                {'name': 'Company', 'id': 'Company', 'presentation': 'markdown', 'type': 'text'},
                 {'name': 'Symbol', 'id': 'Symbol'},
                 {'name': 'Weight (%)', 'id': 'Weight_Pct'},
                 {'name': 'Valid From', 'id': 'ValidFrom'},
                 {'name': 'Valid To', 'id': 'ValidTo'}
             ],
-            markdown_options={"html": True},  # REQUIRED
+            markdown_options={"html": True},
             style_cell={
                 'textAlign': 'left',
-                'padding': '15px',
+                'padding': '16px 18px',
                 'fontFamily': 'Arial, sans-serif',
                 'fontSize': '14px',
-                'color': colors['text'],
-                'backgroundColor': 'white',
-                'border': '1px solid #e1e5e9'
+                'lineHeight': '1.45',
+                'color': '#27425c',
+                'backgroundColor': 'rgba(255,255,255,0.96)',
+                'border': '1px solid rgba(225,229,233,0.75)'
             },
             style_data={
-                'backgroundColor': 'white',
-                'border': '1px solid #e1e5e9'
+                'backgroundColor': 'rgba(255,255,255,0.96)',
+                'border': '1px solid rgba(225,229,233,0.75)'
             },
             style_data_conditional=[
                 {
                     'if': {'column_id': 'Symbol'},
                     'fontWeight': 'bold',
-                    'backgroundColor': '#f8f9fa',
+                    'backgroundColor': '#f7fafc',
                     'textAlign': 'left',
                     'fontFamily': 'Arial, sans-serif',
                     'fontSize': '15px'
@@ -589,20 +727,21 @@ def update_dashboard(composition_sheet, period, currency):
                 }
             ],
             style_header={
-                'backgroundColor': colors['accent'],
+                'backgroundColor': '#0f2744',
                 'color': 'white',
                 'fontWeight': 'bold',
                 'fontFamily': 'Arial, sans-serif',
                 'fontSize': '15px',
+                'padding': '16px 18px',
                 'border': '1px solid #004172',
                 'textAlign': 'center'
             },
             style_table={
                 'overflowX': 'auto',
-                'borderRadius': '12px',
-                'boxShadow': '0 4px 12px rgba(0,0,0,0.1)',
-                'border': '2px solid #e1e5e9',
-                'margin': '20px 0'
+                'borderRadius': '14px',
+                'boxShadow': '0 6px 18px rgba(0,0,0,0.06)',
+                'border': '1px solid #e1e5e9',
+                'margin': '0.75rem 0 0 0'
             },
             sort_action='native',
             row_selectable=False,
@@ -611,9 +750,9 @@ def update_dashboard(composition_sheet, period, currency):
         )
     else:
         table = html.Div(
-            "No current composition", 
+            "No current composition",
             style={
-                'textAlign': 'center', 
+                'textAlign': 'center',
                 'padding': '40px',
                 'fontFamily': 'Arial, sans-serif',
                 'fontSize': '16px',
