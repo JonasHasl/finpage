@@ -512,6 +512,17 @@ layout = dbc.Container([
         ], style=SECTION_CARD_STYLE), width=12)
     ], style={'maxWidth': '1120px', 'margin': '0 auto 1.5rem auto'}),
 
+    html.Div([
+    dbc.Row([
+        dbc.Col(html.Div(id='portfolio-return-card'), xs=12, md=10, lg=5),
+        dbc.Col(html.Div(id='volatility-card'), xs=12, md=10, lg=5)
+    ], className='g-4 justify-content-center')
+    ], style={
+        'maxWidth': '1120px',
+        'margin': '0 auto 1.5rem auto',
+        'padding': '0.25rem 0'
+    }),
+
     dbc.Row([
         dbc.Col(html.Div([
             html.Div("Latest holdings performance", style={
@@ -527,10 +538,10 @@ layout = dbc.Container([
     ], style={'maxWidth': '1120px', 'margin': '0 auto 1.5rem auto'}),
 
     html.Div([
-        dbc.Row([
-            dbc.Col(html.Div(id='portfolio-return-card'), xs=12, md=10, lg=5),
-            dbc.Col(html.Div(id='volatility-card'), xs=12, md=10, lg=5)
-        ], className='g-4 justify-content-center'),
+        #dbc.Row([
+        #    dbc.Col(html.Div(id='portfolio-return-card'), xs=12, md=10, lg=5),
+        #    dbc.Col(html.Div(id='volatility-card'), xs=12, md=10, lg=5)
+        #], className='g-4 justify-content-center'),
         dbc.Row([
             dbc.Col(html.Div([
                 html.Div("Current composition", style={
