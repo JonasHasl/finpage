@@ -424,7 +424,7 @@
 
     <label>Rush Hour Query Time</label>
     <div class="rush-row">
-      <input type="time" class="rush-time-input" id="rushTime" value="07:45" />
+      <input type="time" class="rush-time-input" id="rushTime" value="07:00" />
     </div>
 
     <div class="section-divider"></div>
@@ -1564,7 +1564,7 @@
         return;
       }
 
-      const rushTime = document.getElementById("rushTime").value || "07:45";
+      const rushTime = document.getElementById("rushTime").value || "07:00";
 
       if (!MAPBOX_TOKEN || MAPBOX_TOKEN === "YOUR_MAPBOX_TOKEN_HERE" || MAPBOX_TOKEN === "TOKEN_STRING") {
         setStatus("⚠️ Set your Mapbox token at the top of the script.");
