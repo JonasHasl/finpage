@@ -934,3 +934,14 @@ body {
     gap: 10px;
   }
 }
+
+/* custom.css for commute page */
+.commute-page,
+.commute-page iframe {
+    width: 100%;
+}
+
+.commute-page iframe {
+    height: calc(100vh - 80px);
+    border: none;
+}
